@@ -365,8 +365,16 @@ async function sablonIndir(no) {
 // PPAP no: AIAG PPAP (4. baski) element karsiligi. VDA numarasi musteriye
 // giden formla ayni kalsin diye YERINE gecmiyor, YANINA ekleniyor.
 // Katalogdan tek seferde kuruluyor (her satirda arama yapilmasin).
-const PPAP_NO = {};
-(VDA2.maddeler || []).forEach(m => { if (m.ppap) PPAP_NO[m.no] = m.ppap; });
+const PPAP_NO = {}, PPAP_KLAUS = {};
+(VDA2.maddeler || []).forEach(m => {
+  if (m.ppap) PPAP_NO[m.no] = m.ppap;
+  if (m.klaus) PPAP_KLAUS[m.no] = m.klaus;   // 2.2.10.1 / 2.2.10.2 gibi alt madde
+});
+function ppapBaslik(no, el) {
+  const bas = (VDA2.ppap_ad || {})[el] || '';
+  const k = PPAP_KLAUS[no];
+  return k ? bas.replace(/^AIAG [\d.]+/, 'AIAG ' + k) : bas;
+}
 
 function ilerlemeCubugu(maddeler) {
   const g = maddeler.filter(m => m.gonderim);
@@ -392,7 +400,7 @@ function maddeSatirlari(maddeler, ic, projeId) {
       const pp = PPAP_NO[m.no] || '';
       h += '<tr><td style="white-space:nowrap"><b>' + kacir(m.no) + '</b></td>'
         + '<td class="ppapno">' + (pp
-            ? '<span title="' + kacir((VDA2.ppap_ad || {})[pp] || '') + '">' + kacir(pp) + '</span>'
+            ? '<span title="' + kacir(ppapBaslik(m.no, pp)) + '">' + kacir(pp) + '</span>'
             : '<span class="soluk">—</span>') + '</td>'
         + '<td>' + kacir(m.ad)
         + (met(m.yorum) ? '<div class="soluk" style="color:var(--sil)">💬 ' + kacir(m.yorum) + '</div>' : '')
