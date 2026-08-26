@@ -355,7 +355,8 @@ async function kullaniciPenceresi() {
             .map(x => {
               const A = JSON.stringify(x.eposta).replace(/"/g, '&quot;');
               return '<tr><td>' + kacir(x.eposta)
-                + (met(x.ad) ? '<div class="soluk">' + kacir(x.ad) + '</div>' : '') + '</td>'
+                + (met(x.ad) ? '<div class="soluk">' + kacir(x.ad) + '</div>' : '')
+                + '<div class="soluk">kayıt: ' + met(x.olusturma).slice(0, 16).replace('T', ' ') + '</div></td>'
                 + '<td>' + kacir(x.tedarikci) + '</td>'
                 + '<td>' + (x.aktif ? '<span class="rozet r-kabul">Onaylı</span>'
                                     : '<span class="rozet r-red">Onay bekliyor</span>') + '</td>'
