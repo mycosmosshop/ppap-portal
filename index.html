@@ -5,6 +5,7 @@
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="katalog.js"></script>
+<script src="sablon.js"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -225,6 +226,13 @@ function dosyaOku(file) {
 }
 
 // ── Ortak: madde tablosu ─────────────────────────────────────────────────
+// Bos format: kullanicinin KENDI formu Drive'da duruyor, tedarikci
+// buradan indirip doldurur ve ayni maddeye geri yukler.
+async function sablonIndir(no) {
+  const t = SABLON[no]; if (!t) return;
+  await dosyaAc({ ad: t.dosya, anahtar: t.anahtar });
+}
+
 function ilerlemeCubugu(maddeler) {
   const g = maddeler.filter(m => m.gonderim);
   const t = g.filter(m => m.durum === 'kabul' || m.durum === 'yuklendi').length;
@@ -253,6 +261,9 @@ function maddeSatirlari(maddeler, ic, projeId) {
         + (m.dosyalar || []).map(f => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
             + JSON.stringify(f).replace(/"/g, '&quot;') + ');return false">' + kacir(f.ad) + '</a>'
             + '<span class="soluk">' + kb(f.boyut || 0) + '</span></div>').join('')
+        + (SABLON[m.no] ? '<div class="dosya">📄 <a href="#" onclick="sablonIndir('
+            + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false"><b>Boş formatı indir</b> — '
+            + kacir(SABLON[m.no].ad) + '</a></div>' : '')
         + (!ic && m.gonderim ? '<div class="suruk" data-madde="' + kacir(m.id) + '">'
             + '⬆️ Dosyayı buraya sürükleyin <span class="soluk">veya tıklayıp seçin</span></div>' : '')
         + '</td>'
