@@ -170,7 +170,7 @@ async function basla() {
   } catch (e) { try { await sb.auth.signOut(); } catch (e2) {} }
 
   if (oturum) {
-    if (DAVET && DAVET_FIRMA) { await davetiKullan(); return; }
+    if (DAVET && DAVET_FIRMA) { await davetiKullan(oturum); return; }
     await kimlikBelirle(oturum);
     return;
   }
@@ -213,12 +213,18 @@ function girisModunaGec() {
   $('#g_alt2').textContent = '';
 }
 
-async function davetiKullan() {
-  // Oturum daha yeni kuruldu; istemcinin kimligi iliştirmesi bir an
-  // gecikebiliyor — kimlik gorulmezse kisa araliklarla iki kez daha dener.
-  for (let deneme = 0; deneme < 3; deneme++) {
-    const { data: o } = await sb.auth.getSession();
-    if (!o.session) {
+async function davetiKullan(hazirOturum) {
+  // Oturum daha yeni kuruldu; istemcinin yazmasi bir an gecikebiliyor.
+  // Bu yuzden oturum CAGIRANDAN gelir; gelmezse birkac kez okunmaya
+  // calisilir. Once tek denemede "oturum yok" deyip pes ediyordu.
+  for (let deneme = 0; deneme < 4; deneme++) {
+    let oturum = hazirOturum;
+    if (!oturum) {
+      const { data: o } = await sb.auth.getSession();
+      oturum = o.session;
+    }
+    if (!oturum) {
+      if (deneme < 3) { await new Promise(x => setTimeout(x, 700)); continue; }
       girisEkraniniKur();
       $('#giris').style.display = 'block';
       $('#g_hata').style.display = 'block';
@@ -232,7 +238,7 @@ async function davetiKullan() {
     const r = await sb.rpc('ppap_davet_kullan', { p_kod: DAVET });
     if (!r.error) {
       history.replaceState({}, '', location.pathname);
-      await kimlikBelirle(o.session);
+      await kimlikBelirle(oturum);
       mesaj('✅ Hesabınız <b>' + kacir(r.data) + '</b> ile eşleştirildi.');
       return;
     }
@@ -377,7 +383,7 @@ $('#g_btn').onclick = async () => {
       + '<b>“Şifrenizi mi unuttunuz?”</b> ile yenileyin.';
     return;
   }
-  if (DAVET && DAVET_FIRMA) { await davetiKullan(); return; }
+  if (DAVET && DAVET_FIRMA) { await davetiKullan(r.data.session); return; }
   await kimlikBelirle(r.data.session);
 };
 $('#g_sifre').addEventListener('keydown', e => { if (e.key === 'Enter') $('#g_btn').click(); });
