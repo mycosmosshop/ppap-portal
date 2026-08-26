@@ -83,6 +83,9 @@ label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:#3341
 .t42-y{background:var(--uyari-bg);color:var(--uyari)}
 .suruk{border:2px dashed #b3d4f5;background:#fafcff;border-radius:8px;padding:12px;
   text-align:center;color:#5b7fa6;font-size:12.5px;cursor:pointer;margin-top:6px}
+/* Kapsam renkleri: gonderilecek / yalniz gerekli */
+.sat-gonder td{background:#f1faf2}
+.sat-gerekli td{background:#fdf9ee}
 </style></head>
 <body>
 
@@ -505,7 +508,12 @@ function maddeSatirlari(maddeler, ic, projeId) {
     liste.forEach(m => {
       const A = JSON.stringify(m.id).replace(/"/g, '&quot;');
       const pp = PPAP_NO[m.no] || '';
-      h += '<tr><td style="white-space:nowrap"><b>' + kacir(m.no) + '</b></td>'
+      // Kapsam bir bakista gorunsun: gonderilecek satir acik yesil,
+      // yalniz gerekli (elde tutulacak) satir acik amber. Tedarikci
+      // yuzunde zaten yalniz gonderilecekler listelendigi icin boyanmaz.
+      const sinif = !ic ? '' : (m.gonderim ? ' class="sat-gonder"'
+                   : (m.gerekli ? ' class="sat-gerekli"' : ''));
+      h += '<tr' + sinif + '><td style="white-space:nowrap"><b>' + kacir(m.no) + '</b></td>'
         + '<td class="ppapno">' + (pp
             ? '<span title="' + kacir(ppapBaslik(m.no, pp)) + '">' + kacir(pp) + '</span>'
               + tablo42Kod(pp)
