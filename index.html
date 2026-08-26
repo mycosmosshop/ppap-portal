@@ -4,8 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="katalog.js?v=9"></script>
-<script src="sablon.js?v=9"></script>
+<script src="katalog.js?v=10"></script>
+<script src="sablon.js?v=10"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -555,12 +555,19 @@ function maddeSatirlari(maddeler, ic, projeId) {
         + kacir(m.ad) + '</a>'
         + (met(m.yorum) ? '<div class="soluk" style="color:var(--sil)">💬 ' + kacir(m.yorum) + '</div>' : '')
         + (met(m.ted_yorum) ? '<div class="soluk">🗨 ' + kacir(m.ted_yorum) + '</div>' : '')
-        + (m.dosyalar || []).map(f => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
+        + (m.dosyalar || []).map((f, fi) => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
             + JSON.stringify(f).replace(/"/g, '&quot;') + ');return false">' + kacir(f.ad) + '</a>'
             + '<span class="soluk">' + kb(f.boyut || 0)
             + (met(f.tarih) ? ' · ' + kacir(f.tarih) : '')
             + (met(f.yukleyen) ? ' · ' + kacir(f.yukleyen) : '')
-            + '</span></div>').join('')
+            + '</span>'
+            // Tedarikci yanlis dosyayi silip yenisini yukleyebilsin;
+            // KABUL edilmis maddede silinemez (onaylanan kanit sabit kalir).
+            + (!ic && m.durum !== 'kabul'
+                ? ' <a href="#" style="color:var(--sil);font-size:12px" onclick="dosyaSil('
+                  + JSON.stringify(m.id).replace(/"/g, '&quot;') + ',' + fi + ');return false">sil</a>'
+                : '')
+            + '</div>').join('')
         + (SABLON[m.no] ? '<div class="dosya">📄 <a href="#" onclick="sablonIndir('
             + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false"><b>Boş formatı indir</b> — '
             + kacir(SABLON[m.no].ad) + '</a></div>' : '')
@@ -586,5 +593,5 @@ function maddeSatirlari(maddeler, ic, projeId) {
   return h;
 }
 </script>
-<script src="ppap2.js?v=9"></script>
+<script src="ppap2.js?v=10"></script>
 </body></html>

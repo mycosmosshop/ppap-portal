@@ -639,6 +639,26 @@ async function dosyaYukle(projeId, maddeId, files) {
   tedProje(projeId);
 }
 
+// Tedarikci kendi dosyasini siler; yenisini ayni alandan yukler.
+// Drive'daki icerik dosyasi yerinde kalir (kunye silinince erisilemez;
+// ayni adla yeniden yukleme zaten ustune yazar).
+async function dosyaSil(maddeId, idx) {
+  const m = MADDELER.find(x => x.id === maddeId); if (!m) return;
+  if (m.durum === 'kabul') {
+    mesaj('Kabul edilmiş maddenin dosyası silinemez — kalite bölümüne not yazın.', 'hata');
+    return;
+  }
+  const f = (m.dosyalar || [])[idx]; if (!f) return;
+  if (!confirm(f.ad + ' silinsin mi?' + String.fromCharCode(10,10) + 'Yenisini aynı alandan yükleyebilirsiniz.')) return;
+  const kalan = m.dosyalar.filter((x, i) => i !== idx);
+  const durum = kalan.length ? 'yuklendi' : 'bekliyor';
+  const r = await sb.from('ppap_madde').update({ dosyalar: kalan, durum: durum }).eq('id', maddeId);
+  if (r.error) { mesaj('Silinemedi: ' + r.error.message, 'hata'); return; }
+  m.dosyalar = kalan; m.durum = durum;
+  mesaj('🗑 ' + f.ad + ' silindi.');
+  (BEN.ic ? projeAc : tedProje)(ACIK);
+}
+
 async function tedYorum(maddeId) {
   const m = MADDELER.find(x => x.id === maddeId); if (!m) return;
   const c = await soruModal('🗨 Not — ' + kacir(m.no) + ' ' + kacir(m.ad),
