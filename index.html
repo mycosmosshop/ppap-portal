@@ -4,8 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="katalog.js?v=12"></script>
-<script src="sablon.js?v=12"></script>
+<script src="katalog.js?v=13"></script>
+<script src="sablon.js?v=13"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -575,8 +575,17 @@ function maddeSatirlari(maddeler, ic, projeId) {
         + (SABLON[m.no] ? '<div class="dosya">📄 <a href="#" onclick="sablonIndir('
             + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false"><b>Boş formatı indir</b> — '
             + kacir(SABLON[m.no].ad) + '</a></div>' : '')
-        + (!ic && m.gonderim ? '<div class="suruk" data-madde="' + kacir(m.id) + '">'
-            + '⬆️ Dosyayı buraya sürükleyin <span class="soluk">veya tıklayıp seçin</span></div>' : '')
+        + (!ic && m.gonderim
+            ? (m.durum !== 'kabul'
+                ? '<div class="suruk" data-madde="' + kacir(m.id) + '">'
+                  + '⬆️ Dosyayı buraya sürükleyin <span class="soluk">veya tıklayıp seçin</span></div>'
+                // Kabul edilmis madde: sessizce ustune yukletmiyoruz —
+                // acik "Revize et" ile yeniden acilir ve kaliteye onaya duser.
+                : '<div style="margin-top:6px"><button class="dugme kucuk duz" '
+                  + 'onclick="maddeRevize(' + JSON.stringify(m.id).replace(/"/g, '&quot;') + ')">'
+                  + '🔁 Revize et — yeni dosya yükle</button>'
+                  + '<span class="soluk" style="margin-left:8px">kabul kalkar, kalite yeniden onaylar</span></div>')
+            : '')
         + '</td>'
         + (ic ? '<td style="white-space:nowrap">'
             + '<label class="soluk" style="display:inline-flex;gap:4px;align-items:center;margin:0">'
@@ -597,5 +606,5 @@ function maddeSatirlari(maddeler, ic, projeId) {
   return h;
 }
 </script>
-<script src="ppap2.js?v=12"></script>
+<script src="ppap2.js?v=13"></script>
 </body></html>

@@ -659,6 +659,27 @@ async function dosyaSil(maddeId, idx) {
   (BEN.ic ? projeAc : tedProje)(ACIK);
 }
 
+// Kabul edilmis maddeyi tedarikci ACIKCA yeniden acar: kabul kalkar,
+// sebep not olarak duser, proje Incelemede'ye gecer — kalite yeniden onaylar.
+async function maddeRevize(maddeId) {
+  const m = MADDELER.find(x => x.id === maddeId); if (!m) return;
+  const c = await soruModal('🔁 Revize — ' + kacir(m.no) + ' ' + kacir(m.ad),
+    'Revizyon sebebi (kalite bölümü bu notu görür)', '');
+  if (c === null) return;
+  const sebep = 'REVİZYON: ' + (c.trim() || 'yeni dosya yüklenecek');
+  const not = (met(m.ted_yorum) ? m.ted_yorum + ' · ' : '') + sebep;
+  const r = await sb.from('ppap_madde').update({ durum: 'yuklendi', ted_yorum: not }).eq('id', maddeId);
+  if (r.error) { mesaj('Açılamadı: ' + r.error.message, 'hata'); return; }
+  m.durum = 'yuklendi'; m.ted_yorum = not;
+  try {
+    await sb.rpc('ppap_gonder', { p_id: ACIK });
+    const p = PROJELER.find(x => x.id === ACIK); if (p) p.durum = 'incelemede';
+  } catch (e) {}
+  mesaj('🔁 ' + met(m.no) + ' yeniden açıldı — eskiyi silebilir, yenisini yükleyebilirsiniz. '
+    + 'Kalite bölümü yeniden onaylayacak.');
+  tedProje(ACIK);
+}
+
 async function tedYorum(maddeId) {
   const m = MADDELER.find(x => x.id === maddeId); if (!m) return;
   const c = await soruModal('🗨 Not — ' + kacir(m.no) + ' ' + kacir(m.ad),
