@@ -178,7 +178,8 @@ async function yeniProje() {
     + 'sonra madde bazında değiştirebilirsiniz.</div>'
     + '<label>Tedarikçi</label>'
     + (ted.length
-        ? '<select id="p_ted">' + ted.map(x => '<option' + (x.ad === onSecili ? ' selected' : '')
+        ? '<select id="p_ted"><option value="">— tedarikçi seçin —</option>'
+          + ted.map(x => '<option' + (x.ad === onSecili ? ' selected' : '')
             + '>' + kacir(x.ad) + '</option>').join('') + '</select>'
         : '<input id="p_ted" value="' + kacir(onSecili).replace(/"/g, '&quot;') + '" placeholder="Tedarikçi adı"><div class="soluk">Onaylı liste okunamadı — '
           + 'adı elle yazabilirsiniz.</div>')
@@ -337,7 +338,8 @@ async function kullaniciPenceresi() {
     + '<label>E-posta</label><input id="k_mail" type="email" placeholder="kalite@tedarikci.com">'
     + '<label>Tedarikçi</label>'
     + (ted.length
-        ? '<select id="k_ted">' + ted.map(x => '<option'
+        ? '<select id="k_ted"><option value="">— tedarikçi seçin —</option>'
+          + ted.map(x => '<option'
             + ((davetler[0] && x.ad === davetler[0].tedarikci) ? ' selected' : '')
             + '>' + kacir(x.ad) + '</option>').join('') + '</select>'
         : '<input id="k_ted" value="' + kacir((davetler[0] || {}).tedarikci || '') + '">')
@@ -400,7 +402,7 @@ async function kullaniciPenceresi() {
   p.querySelector('#k_kapat').onclick = kapat;
   p.querySelector('#k_davet').onclick = async () => {
     const t = p.querySelector('#k_ted').value.trim();
-    if (!t) { mesaj('Önce tedarikçi seçin.', 'hata'); return; }
+    if (!t) { mesaj('Önce listeden tedarikçi seçin.', 'hata'); return; }
     const kod = [...crypto.getRandomValues(new Uint8Array(9))]
       .map(x => 'abcdefghijkmnpqrstuvwxyz23456789'[x % 32]).join('');
     const r = await sb.from('ppap_davet').insert({
@@ -416,7 +418,7 @@ async function kullaniciPenceresi() {
   p.querySelector('#k_kuyruk').onclick = async () => {
     const mail = p.querySelector('#k_mail').value.trim().toLowerCase();
     const t = p.querySelector('#k_ted').value.trim();
-    if (!mail || !t) { mesaj('E-posta ve tedarikçi gerekli.', 'hata'); return; }
+    if (!mail || !t) { mesaj('E-posta yazın ve listeden tedarikçi seçin.', 'hata'); return; }
     const r2 = await sb.from('ppap_kullanici').upsert({
       eposta: mail, tedarikci: t, ad: p.querySelector('#k_ad').value.trim(), aktif: false });
     if (r2.error) { mesaj('Eklenemedi: ' + r2.error.message, 'hata'); return; }
