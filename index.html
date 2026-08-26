@@ -322,8 +322,15 @@ $('#g_btn').onclick = async () => {
     }
   }
   $('#g_btn').disabled = true;
-  const r = kayit ? await sb.auth.signUp({ email: e, password: p })
-                  : await sb.auth.signInWithPassword({ email: e, password: p });
+  let r = kayit ? await sb.auth.signUp({ email: e, password: p })
+                : await sb.auth.signInWithPassword({ email: e, password: p });
+  // HESAP ZATEN VARSA: Supabase, e-posta sizdirmamak icin signUp'a hata
+  // DEGIL, oturumsuz bir yanit dondurur. Bunu "dogrulama bekleniyor"
+  // saymak yanlisti — ayni bilgilerle girisi deneyip devam ediyoruz.
+  if (kayit && !r.error && !r.data.session) {
+    const g = await sb.auth.signInWithPassword({ email: e, password: p });
+    if (!g.error && g.data.session) r = g;
+  }
   $('#g_btn').disabled = false;
   if (r.error) {
     $('#g_hata').style.display = 'block';
@@ -332,12 +339,12 @@ $('#g_btn').onclick = async () => {
     return;
   }
   if (!r.data.session) {
-    // E-posta dogrulama acik: once postadaki baglantiya basacak.
     $('#giris').style.display = 'block';
     $('#g_hata').style.display = 'block';
-    $('#g_hata').innerHTML = '📧 <b>' + kacir(e) + '</b> adresine bir doğrulama postası '
-      + 'gönderildi. Postadaki bağlantıya bastıktan sonra <b>bu sayfaya geri dönüp</b> '
-      + 'aynı bilgilerle giriş yapın.';
+    $('#g_hata').innerHTML = '📧 <b>' + kacir(e) + '</b> için oturum açılamadı. '
+      + 'Bu adresle daha önce hesap açıldıysa <b>şifreniz farklı olabilir</b> — '
+      + '“giriş yapın”a basıp doğru şifreyi deneyin. Doğrulama postası geldiyse '
+      + 'oradaki bağlantıya bastıktan sonra bu sayfaya dönün.';
     return;
   }
   if (DAVET && DAVET_FIRMA) { await davetiKullan(); return; }
