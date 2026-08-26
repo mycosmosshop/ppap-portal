@@ -211,12 +211,31 @@ async function kimlikBelirle(oturum) {
   else if (!ru.data.approved) neden.push('ERP hesabı henüz onaylı değil');
   ic = !!(ru.data && ru.data.approved);
 
+  let bekliyor = null;
   if (!ic) {
     const rk = await sb.from('ppap_kullanici').select('tedarikci,aktif')
       .ilike('eposta', eposta).maybeSingle();
     if (rk.error) neden.push('ppap_kullanici: ' + rk.error.message);
     else if (rk.data && rk.data.aktif) tedarikci = rk.data.tedarikci;
+    else if (rk.data) bekliyor = rk.data.tedarikci;   // kayit var, ONAY BEKLIYOR
     else neden.push('tedarikçi eşleşmesi yok');
+  }
+  // Davetle hesap acan tedarikci dogrudan giremez: kalite onaylayinca girer.
+  if (bekliyor) {
+    $('#giris').style.display = 'block';
+    $('#g_baslik').textContent = 'Kaydınız alındı';
+    $('#g_alt').textContent = '';
+    $('#g_davet').style.display = 'block';
+    $('#g_davet').className = 'bilgi-kutu';
+    $('#g_davet').innerHTML = '<b>' + kacir(bekliyor) + '</b> adına kaydınız oluşturuldu.<br>'
+      + 'Sanifoam kalite bölümünün <b>onayı</b> bekleniyor. Onaylandığında aynı '
+      + 'e-posta ve şifreyle girebilirsiniz.';
+    ['g_mail', 'g_sifre', 'g_sifre2kutu', 'g_btn', 'g_alt2'].forEach(x => {
+      const el = document.getElementById(x); if (el) el.style.display = 'none';
+    });
+    document.querySelectorAll('#giris label').forEach(l => l.style.display = 'none');
+    await sb.auth.signOut();
+    return;
   }
   if (!ic && !tedarikci) {
     $('#giris').style.display = 'block';

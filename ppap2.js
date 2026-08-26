@@ -5,8 +5,14 @@ let OZET = {};        // proje_id -> {toplam, bekliyor, yuklendi, kabul, red, do
 
 // Tum projelerin madde ozeti TEK sorguda: tedarikci bazli listede her
 // projenin ilerlemesi ve son hareketi gorunsun diye.
+let BEKLEYEN = 0;      // onay bekleyen tedarikci kullanicisi sayisi
+
 async function ozetleriYukle() {
   OZET = {};
+  try {
+    const rb = await sb.from('ppap_kullanici').select('eposta').eq('aktif', false);
+    BEKLEYEN = (rb.data || []).length;
+  } catch (e) { BEKLEYEN = 0; }
   const r = await sb.from('ppap_madde')
     .select('proje_id,durum,gonderim,dosyalar,guncelleme');
   if (r.error) return;
@@ -50,7 +56,8 @@ async function icEkran() {
     + '<span class="rozet r-onayli">Onaylı ' + (say.onayli || 0) + '</span>'
     + '<div style="margin-left:auto;display:flex;gap:8px">'
     + '<button class="dugme duz" onclick="gorunumDegis(\'tedarikci\')">🏭 Tedarikçi görünümü</button>'
-    + '<button class="dugme duz" onclick="kullaniciPenceresi()">👤 Tedarikçi kullanıcıları</button>'
+    + '<button class="dugme' + (BEKLEYEN ? '' : ' duz') + '" onclick="kullaniciPenceresi()">👤 Tedarikçi kullanıcıları'
+    + (BEKLEYEN ? ' <span class="rozet r-red">' + BEKLEYEN + ' onay bekliyor</span>' : '') + '</button>'
     + '<button class="dugme" onclick="yeniProje()">➕ Yeni PPAP</button></div></div>'
     + (PROJELER.length
         ? '<table><thead><tr><th>Tedarikçi</th><th>Parça</th><th>Müşteri</th><th>Seviye</th>'
@@ -82,7 +89,8 @@ function tedarikciGorunumu() {
     + '<span class="rozet r-incelemede">' + PROJELER.length + ' PPAP</span>'
     + '<div style="margin-left:auto;display:flex;gap:8px">'
     + '<button class="dugme duz" onclick="gorunumDegis(\'proje\')">📋 Proje listesi</button>'
-    + '<button class="dugme duz" onclick="kullaniciPenceresi()">👤 Tedarikçi kullanıcıları</button>'
+    + '<button class="dugme' + (BEKLEYEN ? '' : ' duz') + '" onclick="kullaniciPenceresi()">👤 Tedarikçi kullanıcıları'
+    + (BEKLEYEN ? ' <span class="rozet r-red">' + BEKLEYEN + ' onay bekliyor</span>' : '') + '</button>'
     + '<button class="dugme" onclick="yeniProje()">➕ Yeni PPAP</button></div></div>'
     + (adlar.length ? '' : '<div class="bilgi-kutu">Henüz PPAP projesi yok. Onaylı '
         + 'tedarikçi listesindeki 🧪 PPAP düğmesinden başlatabilirsiniz.</div>')
@@ -286,10 +294,23 @@ async function kullaniciPenceresi() {
     + '<div class="dugmeler"><button class="dugme" id="k_davet">🔗 Davet linki oluştur</button>'
     + '<button class="dugme duz" id="k_ekle">Var olan hesabı bağla</button></div>'
     + (liste.length
-        ? '<table style="margin-top:14px"><thead><tr><th>E-posta</th><th>Tedarikçi</th><th></th></tr></thead><tbody>'
-          + liste.map(x => '<tr><td>' + kacir(x.eposta) + (x.aktif ? '' : ' <span class="soluk">(pasif)</span>')
-              + '</td><td>' + kacir(x.tedarikci) + '</td>'
-              + '<td><button class="dugme kucuk duz" onclick="kullaniciSil(' + JSON.stringify(x.eposta).replace(/"/g, '&quot;') + ')">Kaldır</button></td></tr>').join('')
+        ? '<table style="margin-top:14px"><thead><tr><th>E-posta</th><th>Tedarikçi</th>'
+          + '<th>Durum</th><th></th></tr></thead><tbody>'
+          + liste.slice().sort((a, b) => (a.aktif === b.aktif) ? 0 : (a.aktif ? 1 : -1))
+            .map(x => {
+              const A = JSON.stringify(x.eposta).replace(/"/g, '&quot;');
+              return '<tr><td>' + kacir(x.eposta)
+                + (met(x.ad) ? '<div class="soluk">' + kacir(x.ad) + '</div>' : '') + '</td>'
+                + '<td>' + kacir(x.tedarikci) + '</td>'
+                + '<td>' + (x.aktif ? '<span class="rozet r-kabul">Onaylı</span>'
+                                    : '<span class="rozet r-red">Onay bekliyor</span>') + '</td>'
+                + '<td style="white-space:nowrap">'
+                + (x.aktif
+                    ? '<button class="dugme kucuk duz" onclick="kullaniciOnay(' + A + ',false)">Erişimi durdur</button>'
+                    : '<button class="dugme kucuk" onclick="kullaniciOnay(' + A + ',true)">✔ Onayla</button>')
+                + ' <button class="dugme kucuk duz" onclick="kullaniciSil(' + A + ')">Kaldır</button>'
+                + '</td></tr>';
+            }).join('')
           + '</tbody></table>'
         : '<div class="soluk" style="margin-top:12px">Henüz bağlı kullanıcı yok.</div>')
     + '<div class="dugmeler"><button class="dugme duz sag" id="k_kapat">Kapat</button></div></div>';
@@ -329,7 +350,8 @@ function davetPenceresi(tedarikci, link, mail) {
     + '<div class="bilgi-kutu" style="word-break:break-all;font-family:monospace;font-size:12px">'
     + kacir(link) + '</div>'
     + '<div class="soluk">Tedarikçi bu bağlantıyı açar, kendi e-postasını ve şifresini '
-    + 'belirler; hesabı otomatik olarak <b>' + kacir(tedarikci) + '</b> ile eşleşir.</div>'
+    + 'belirler; hesabı <b>' + kacir(tedarikci) + '</b> ile eşleşir ve <b>onayınızı bekler</b>. '
+    + '👤 Tedarikçi kullanıcıları penceresinden onaylayınca girebilir.</div>'
     + '<div class="dugmeler"><button class="dugme" id="d_kopya">📋 Kopyala</button>'
     + '<button class="dugme duz" id="d_mail">📧 Mail taslağı</button>'
     + '<button class="dugme duz sag" id="d_kapat">Kapat</button></div></div>';
@@ -357,6 +379,19 @@ function davetPenceresi(tedarikci, link, mail) {
     a.style.display = 'none'; document.body.appendChild(a); a.click();
     setTimeout(() => a.remove(), 1000);
   };
+}
+
+// Onay: davetle gelen tedarikci ancak burada onaylaninca girebilir.
+async function kullaniciOnay(eposta, aktif) {
+  if (!aktif && !confirm(eposta + ' erişimi durdurulsun mu?\n\n'
+      + 'Hesap kalır ama portala giremez; istediğinde yeniden onaylayabilirsin.')) return;
+  const r = await sb.from('ppap_kullanici').update({ aktif: aktif }).eq('eposta', eposta);
+  if (r.error) { mesaj('Kaydedilemedi: ' + r.error.message, 'hata'); return; }
+  mesaj(aktif ? '✔ ' + eposta + ' onaylandı — artık girebilir.'
+              : '⛔ ' + eposta + ' erişimi durduruldu.');
+  document.querySelectorAll('.perde').forEach(x => x.remove());
+  await ozetleriYukle();
+  kullaniciPenceresi();
 }
 
 async function kullaniciSil(eposta) {
