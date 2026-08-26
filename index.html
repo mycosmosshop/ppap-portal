@@ -4,8 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="katalog.js?v=11"></script>
-<script src="sablon.js?v=11"></script>
+<script src="katalog.js?v=12"></script>
+<script src="sablon.js?v=12"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -563,9 +563,13 @@ function maddeSatirlari(maddeler, ic, projeId) {
             + '</span>'
             // Tedarikci yanlis dosyayi silip yenisini yukleyebilsin;
             // KABUL edilmis maddede silinemez (onaylanan kanit sabit kalir).
-            + (!ic && m.durum !== 'kabul'
-                ? ' <a href="#" style="color:var(--sil);font-size:12px" onclick="dosyaSil('
-                  + JSON.stringify(m.id).replace(/"/g, '&quot;') + ',' + fi + ');return false">sil</a>'
+            + (!ic
+                ? (m.durum !== 'kabul'
+                    ? ' <a href="#" style="color:var(--sil);font-size:12px" onclick="dosyaSil('
+                      + JSON.stringify(m.id).replace(/"/g, '&quot;') + ',' + fi + ');return false">sil</a>'
+                    : ' <span style="font-size:12px;cursor:help" title="Madde kabul edildi — '
+                      + 'onaylanan dosya silinemez. Değişiklik gerekiyorsa Not yazın; kalite '
+                      + 'maddeyi redde çekerse silme yeniden açılır.">🔒</span>')
                 : '')
             + '</div>').join('')
         + (SABLON[m.no] ? '<div class="dosya">📄 <a href="#" onclick="sablonIndir('
@@ -593,5 +597,5 @@ function maddeSatirlari(maddeler, ic, projeId) {
   return h;
 }
 </script>
-<script src="ppap2.js?v=11"></script>
+<script src="ppap2.js?v=12"></script>
 </body></html>
