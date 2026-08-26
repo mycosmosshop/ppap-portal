@@ -161,7 +161,8 @@ async function yeniProje() {
     + '<div><label>Müşteri</label><input id="p_mus" placeholder="MAN / Lear / VW…"></div>'
     + '<div><label>PPA seviyesi</label><select id="p_sev">'
     + Object.keys(VDA2.seviye).map(k => '<option value="' + k + '"' + (k === '3' ? ' selected' : '') + '>'
-        + kacir(VDA2.seviye[k].ad) + '</option>').join('') + '</select></div></div>'
+        + kacir(VDA2.seviye[k].ad) + '</option>').join('') + '</select>'
+    + '<div class="soluk" id="p_sevnot" style="margin-top:4px"></div></div></div>'
     + '<label>Açıklama (isteğe bağlı)</label><textarea id="p_not"></textarea>'
     + '<div class="dugmeler"><button class="dugme" id="p_kur">Projeyi oluştur</button>'
     + '<button class="dugme duz sag" id="p_kapat">Vazgeç</button></div></div>';
@@ -169,6 +170,11 @@ async function yeniProje() {
   const kapat = () => p.remove();
   p.addEventListener('click', e => { if (e.target === p) kapat(); });
   p.querySelector('#p_kapat').onclick = kapat;
+  const sevNot = () => {
+    const k = p.querySelector('#p_sev').value;
+    p.querySelector('#p_sevnot').textContent = (VDA2.seviye[k] || {}).not || '';
+  };
+  p.querySelector('#p_sev').onchange = sevNot; sevNot();
   p.querySelector('#p_kur').onclick = async () => {
     const tedAd = p.querySelector('#p_ted').value.trim();
     const parca = p.querySelector('#p_no').value.trim();
@@ -181,10 +187,13 @@ async function yeniProje() {
       aciklama: p.querySelector('#p_not').value.trim(), olusturan: BEN.eposta
     }).select().single();
     if (pr.error) { mesaj('Proje açılamadı: ' + pr.error.message, 'hata'); return; }
-    const secili = new Set(VDA2.seviye[seviye].maddeler);
+    // AIAG PPAP Tablo 4.2: S = gonderilir, R/* = elde tutulur.
+    // Portalin iki bayragi tam bunun karsiligi.
+    const gonder = new Set(VDA2.seviye[seviye].maddeler);
+    const tut = new Set(VDA2.seviye[seviye].tutulacak || []);
     const satirlar = VDA2.maddeler.filter(m => !m.ust).map(m => ({
       proje_id: pr.data.id, no: m.no, ad: m.ad, grup: m.grup,
-      gerekli: secili.has(m.no), gonderim: secili.has(m.no)
+      gerekli: gonder.has(m.no) || tut.has(m.no), gonderim: gonder.has(m.no)
     }));
     const mr = await sb.from('ppap_madde').insert(satirlar);
     if (mr.error) { mesaj('Maddeler yazılamadı: ' + mr.error.message, 'hata'); return; }
@@ -200,6 +209,7 @@ async function projeAc(id) {
   const r = await sb.from('ppap_madde').select('*').eq('proje_id', id).order('no');
   if (r.error) { mesaj('Maddeler okunamadı: ' + r.error.message, 'hata'); return; }
   ACIK = id; MADDELER = r.data || [];
+  AKTIF_SEVIYE = met(p.seviye) || '3';
   const A = JSON.stringify(id).replace(/"/g, '&quot;');
   $('#govde').innerHTML = '<div class="kart">'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
@@ -217,9 +227,12 @@ async function projeAc(id) {
     + ilerlemeCubugu(MADDELER)
     + (met(p.aciklama) ? '<div class="bilgi-kutu">' + kacir(p.aciklama) + '</div>' : '')
     + '</div><div class="kart"><h3>VDA 2 madde listesi</h3>'
-    + '<div class="soluk">“gerekli” ve “gönderilecek” işaretleri VDA 2 Anlage 2 anlaşmasının '
-    + 'karşılığıdır. Tedarikçi yalnız <b>gönderilecek</b> işaretli maddeleri görür. '
-    + '<b>PPAP</b> sütunu AIAG PPAP (4. baskı) element numarasıdır — üstüne gelince adı çıkar.</div>'
+    + '<div class="soluk">Kapsam <b>AIAG PPAP 4. baskı Tablo 4.2</b>’den kuruluyor: '
+    + '<b>S</b> = müşteriye gönderilir (“gönderilecek”), <b>R</b>/<b>*</b> = tedarikçide tutulur '
+    + '(“gerekli”, gönderilmez). Tedarikçi yalnız <b>gönderilecek</b> işaretli maddeleri görür. '
+    + '<b>PPAP</b> sütunu element numarasıdır — üstüne gelince adı çıkar.'
+    + ((VDA2.seviye[p.seviye] || {}).not ? '<div style="margin-top:4px">'
+        + kacir(VDA2.seviye[p.seviye].not) + '</div>' : '') + '</div>'
     + '<table><thead><tr><th>VDA no</th><th title="AIAG PPAP element numarası">PPAP</th>'
     + '<th>Madde</th><th>Kapsam</th><th>Durum</th><th></th></tr></thead>'
     + '<tbody>' + maddeSatirlari(MADDELER, true, id) + '</tbody></table></div>';
@@ -263,11 +276,12 @@ async function seviyeUygula(id) {
   if (!confirm('Seviye ' + s + ' işaretleri uygulanacak.\n\n'
     + 'Elle yaptığınız kapsam değişiklikleri bu maddeler için sıfırlanır; '
     + 'yüklenen dosyalar ve kararlar korunur.')) return;
-  const secili = new Set(VDA2.seviye[s].maddeler);
+  const gonder = new Set(VDA2.seviye[s].maddeler);
+  const tut = new Set(VDA2.seviye[s].tutulacak || []);
   for (const m of MADDELER) {
-    const yeni = secili.has(m.no);
-    if (m.gonderim !== yeni || m.gerekli !== yeni) {
-      await sb.from('ppap_madde').update({ gerekli: yeni, gonderim: yeni }).eq('id', m.id);
+    const g = gonder.has(m.no), k = g || tut.has(m.no);
+    if (m.gonderim !== g || m.gerekli !== k) {
+      await sb.from('ppap_madde').update({ gerekli: k, gonderim: g }).eq('id', m.id);
     }
   }
   await sb.from('ppap_proje').update({ seviye: s }).eq('id', id);
@@ -428,6 +442,7 @@ async function tedProje(id) {
   const r = await sb.from('ppap_madde').select('*').eq('proje_id', id).order('no');
   if (r.error) { mesaj('Maddeler okunamadı: ' + r.error.message, 'hata'); return; }
   ACIK = id; MADDELER = (r.data || []).filter(m => m.gonderim);
+  AKTIF_SEVIYE = met(p.seviye) || '3';
   $('#govde').innerHTML = '<div class="kart">'
     + (PROJELER.length > 1 ? '<button class="dugme duz kucuk" onclick="tedEkran()">← Dosyalarım</button>' : '')
     + '<h2 style="margin:8px 0 2px">' + kacir(p.parca_no) + ' — ' + kacir(p.parca_ad) + '</h2>'

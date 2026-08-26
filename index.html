@@ -77,6 +77,10 @@ label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:#3341
 .ppapno{text-align:center;white-space:nowrap}
 .ppapno span{display:inline-block;min-width:22px;background:#ede7f6;color:#5e35b1;
   border-radius:6px;padding:1px 7px;font-weight:700;font-size:12px;cursor:help}
+.ppapno .t42{min-width:16px;margin-left:3px;padding:1px 5px;font-size:11px}
+.t42-s{background:var(--ok-bg);color:var(--ok)}
+.t42-r{background:#eceff3;color:var(--soluk)}
+.t42-y{background:var(--uyari-bg);color:var(--uyari)}
 .suruk{border:2px dashed #b3d4f5;background:#fafcff;border-radius:8px;padding:12px;
   text-align:center;color:#5b7fa6;font-size:12.5px;cursor:pointer;margin-top:6px}
 </style></head>
@@ -370,6 +374,18 @@ const PPAP_NO = {}, PPAP_KLAUS = {};
   if (m.ppap) PPAP_NO[m.no] = m.ppap;
   if (m.klaus) PPAP_KLAUS[m.no] = m.klaus;   // 2.2.10.1 / 2.2.10.2 gibi alt madde
 });
+// Tablo 4.2 kodu: S gonderilir, R elde tutulur, * istenirse gonderilir.
+// Ic yuzde kapsamin NEDEN oyle oldugu gorunsun diye numaranin yaninda.
+let AKTIF_SEVIYE = '3';
+const KOD_AD = { S: 'S — müşteriye gönderilir', R: 'R — tedarikçide tutulur, istenirse gösterilir',
+                 '*': '* — tedarikçide tutulur, istenirse gönderilir' };
+function tablo42Kod(el) {
+  const k = ((VDA2.tablo42 || {})[el] || {})[AKTIF_SEVIYE];
+  if (!k) return '';
+  return '<span class="t42 t42-' + (k === 'S' ? 's' : (k === 'R' ? 'r' : 'y'))
+    + '" title="' + kacir(KOD_AD[k] || '') + '">' + kacir(k) + '</span>';
+}
+
 function ppapBaslik(no, el) {
   const bas = (VDA2.ppap_ad || {})[el] || '';
   const k = PPAP_KLAUS[no];
@@ -401,6 +417,7 @@ function maddeSatirlari(maddeler, ic, projeId) {
       h += '<tr><td style="white-space:nowrap"><b>' + kacir(m.no) + '</b></td>'
         + '<td class="ppapno">' + (pp
             ? '<span title="' + kacir(ppapBaslik(m.no, pp)) + '">' + kacir(pp) + '</span>'
+              + tablo42Kod(pp)
             : '<span class="soluk">—</span>') + '</td>'
         + '<td>' + kacir(m.ad)
         + (met(m.yorum) ? '<div class="soluk" style="color:var(--sil)">💬 ' + kacir(m.yorum) + '</div>' : '')
