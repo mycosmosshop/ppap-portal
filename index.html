@@ -329,9 +329,25 @@ $('#g_btn').onclick = async () => {
   // HESAP ZATEN VARSA: Supabase, e-posta sizdirmamak icin signUp'a hata
   // DEGIL, oturumsuz bir yanit dondurur. Bunu "dogrulama bekleniyor"
   // saymak yanlisti — ayni bilgilerle girisi deneyip devam ediyoruz.
-  if (kayit && !r.error && !r.data.session) {
+  // HESAP ZATEN VARSA: Supabase iki turlu davranabiliyor —
+  //   (a) hata: "User already registered"
+  //   (b) hata yok ama oturum yok (e-posta sizdirmama davranisi)
+  // Ikisinde de dogru hamle ayni: girilen sifreyle GIRIS denemek.
+  if (kayit && ((r.error && /already registered|already exists|user_exists/i.test(r.error.message || ''))
+                || (!r.error && !r.data.session))) {
     const g = await sb.auth.signInWithPassword({ email: e, password: p });
-    if (!g.error && g.data.session) r = g;
+    if (!g.error && g.data.session) {
+      r = g;
+    } else if (r.error) {
+      // Hesap var ama sifre tutmadi — dogru yonlendirme sifre sifirlama.
+      $('#g_btn').disabled = false;
+      $('#g_hata').style.display = 'block';
+      $('#g_hata').innerHTML = '<b>' + kacir(e) + '</b> ile daha önce hesap açılmış ve '
+        + 'girdiğiniz şifre tutmadı.<div style="margin-top:6px">Doğru şifreyi biliyorsanız '
+        + '<b>“giriş yapın”</b>a basın; bilmiyorsanız <b>“Şifrenizi mi unuttunuz?”</b> ile '
+        + 'yenileyin. Davet bağlantınız geçerli kalır.</div>';
+      return;
+    }
   }
   $('#g_btn').disabled = false;
   if (r.error) {

@@ -9,8 +9,18 @@ let BEKLEYEN = 0, BEKLEYEN_LISTE = [];   // onay bekleyen tedarikci kullanicilar
 
 // Onay bekleyenler ANA EKRANDA gorunsun: dialog icindeki rozet kolayca
 // gozden kaciyor, "onay nereye geliyor" sorusu da oradan cikti.
+let ACIK_DAVET = 0;
 function onaySeridi() {
-  if (!BEKLEYEN) return '';
+  if (!BEKLEYEN) {
+    if (!ACIK_DAVET) return '';
+    return '<div class="kart" style="border-left:5px solid var(--bilgi);background:var(--bilgi-bg)">'
+      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<b>🔗 ' + ACIK_DAVET + ' davet gönderildi, henüz kullanılmadı</b>'
+      + '<span class="soluk">Tedarikçi bağlantıyı açıp hesabını oluşturunca burada '
+      + 'onayınız istenecek.</span>'
+      + '<button class="dugme duz" style="margin-left:auto" onclick="kullaniciPenceresi()">'
+      + 'Davetleri gör</button></div></div>';
+  }
   return '<div class="kart" style="border-left:5px solid var(--uyari);background:var(--uyari-bg)">'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     + '<b>⏳ ' + BEKLEYEN + ' tedarikçi kullanıcısı onayınızı bekliyor</b>'
@@ -27,7 +37,9 @@ async function ozetleriYukle() {
     const rb = await sb.from('ppap_kullanici').select('eposta,tedarikci').eq('aktif', false);
     BEKLEYEN_LISTE = rb.data || [];
     BEKLEYEN = BEKLEYEN_LISTE.length;
-  } catch (e) { BEKLEYEN = 0; BEKLEYEN_LISTE = []; }
+    const rd = await sb.from('ppap_davet').select('kod').is('kullanan', null);
+    ACIK_DAVET = (rd.data || []).length;
+  } catch (e) { BEKLEYEN = 0; BEKLEYEN_LISTE = []; ACIK_DAVET = 0; }
   const r = await sb.from('ppap_madde')
     .select('proje_id,durum,gonderim,dosyalar,guncelleme');
   if (r.error) return;
@@ -309,6 +321,11 @@ async function seviyeUygula(id) {
 async function kullaniciPenceresi() {
   const r = await sb.from('ppap_kullanici').select('*').order('tedarikci');
   const liste = r.data || [];
+  // Gonderilmis davetler de gorunsun: "onay nereye geliyor" karisikligi
+  // buradan cikti — davet kullanilmadan onay kuyruguna bir sey dusmuyor,
+  // panel de bunu soylemiyordu.
+  const rd = await sb.from('ppap_davet').select('*').order('olusturma', { ascending: false });
+  const davetler = rd.data || [];
   const ted = await onayliTedarikciler();
   const p = document.createElement('div');
   p.className = 'perde';
@@ -344,6 +361,29 @@ async function kullaniciPenceresi() {
             }).join('')
           + '</tbody></table>'
         : '<div class="soluk" style="margin-top:12px">Henüz bağlı kullanıcı yok.</div>')
+    + (davetler.length
+        ? '<h3 style="margin:18px 0 4px">🔗 Gönderilen davetler</h3>'
+          + '<div class="soluk">Davet kullanılmadan onay kuyruğuna bir şey düşmez.</div>'
+          + '<table style="margin-top:6px"><thead><tr><th>Tedarikçi</th><th>Durum</th>'
+          + '<th>Tarih</th><th></th></tr></thead><tbody>'
+          + davetler.map(x => {
+              const K = JSON.stringify(x.kod).replace(/"/g, '&quot;');
+              const link = location.href.split('?')[0].split('#')[0] + '?davet=' + x.kod;
+              const L = JSON.stringify(link).replace(/"/g, '&quot;');
+              const T = JSON.stringify(x.tedarikci).replace(/"/g, '&quot;');
+              return '<tr><td>' + kacir(x.tedarikci) + '</td>'
+                + '<td>' + (x.kullanan
+                    ? '<span class="rozet r-kabul">kullanıldı</span><div class="soluk">'
+                      + kacir(x.kullanan) + '</div>'
+                    : '<span class="rozet r-tedarikcide">bekliyor — tedarikçi henüz açmadı</span>')
+                + '</td><td class="soluk">' + met(x.olusturma).slice(0, 10) + '</td>'
+                + '<td style="white-space:nowrap">'
+                + (x.kullanan ? ''
+                    : '<button class="dugme kucuk duz" onclick="davetPenceresi(' + T + ',' + L + ')">🔗 Linki gör</button> ')
+                + '<button class="dugme kucuk duz" onclick="davetSil(' + K + ')">Sil</button>'
+                + '</td></tr>';
+            }).join('') + '</tbody></table>'
+        : '')
     + '<div class="dugmeler"><button class="dugme duz sag" id="k_kapat">Kapat</button></div></div>';
   document.body.appendChild(p);
   const kapat = () => p.remove();
@@ -422,6 +462,15 @@ async function kullaniciOnay(eposta, aktif) {
               : '⛔ ' + eposta + ' erişimi durduruldu.');
   document.querySelectorAll('.perde').forEach(x => x.remove());
   await ozetleriYukle();
+  kullaniciPenceresi();
+}
+
+async function davetSil(kod) {
+  if (!confirm('Bu davet bağlantısı iptal edilsin mi?\n\nLink bir daha çalışmaz.')) return;
+  const r = await sb.from('ppap_davet').delete().eq('kod', kod);
+  if (r.error) { mesaj('Silinemedi: ' + r.error.message, 'hata'); return; }
+  document.querySelectorAll('.perde').forEach(x => x.remove());
+  mesaj('Davet iptal edildi.');
   kullaniciPenceresi();
 }
 
