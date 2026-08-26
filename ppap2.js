@@ -621,21 +621,39 @@ async function dosyaYukle(projeId, maddeId, files) {
   if (!files || !files.length) return;
   const m = MADDELER.find(x => x.id === maddeId);
   if (!m) return;
-  mesaj('📤 ' + files.length + ' dosya yükleniyor…');
+  // Yukleme durumu SURUKLEME ALANININ ICINDE gosterilir: kullanici tam
+  // oraya bakiyor; kose bildirimi kaydirilmis sayfada kacabiliyor.
+  const alan = document.querySelector('.suruk[data-madde="' + maddeId + '"]');
+  const eskiHtml = alan ? alan.innerHTML : '';
+  const alanYaz = t => { if (alan) alan.innerHTML = t; };
   const eklenen = (m.dosyalar || []).slice();
+  let n = 0;
   for (const f of files) {
-    if (f.size > 12 * 1024 * 1024) { mesaj(f.name + ' çok büyük (en fazla 12 MB).', 'hata'); continue; }
+    if (f.size > 12 * 1024 * 1024) {
+      mesaj('⚠️ ' + kacir(f.name) + ' çok büyük (en fazla 12 MB) — atlandı.', 'hata');
+      continue;
+    }
+    n++;
+    alanYaz('⏳ <b>' + kacir(f.name) + '</b> yükleniyor (' + n + '/' + files.length
+      + ') — sayfayı kapatmayın…');
     const veri = await dosyaOku(f);
     const anahtar = driveAnahtar(projeId, m.no, f.name);
+    const eski = eklenen.findIndex(x => x.ad === f.name);
+    if (eski >= 0) {
+      mesaj('ℹ️ ' + kacir(f.name) + ' aynı adla vardı — üzerine yazıldı.');
+      eklenen.splice(eski, 1);
+    }
     await driveYaz(anahtar, JSON.stringify({ ad: f.name, tur: f.type, boyut: f.size, veri: veri }));
     eklenen.push({ ad: f.name, boyut: f.size, anahtar: anahtar,
                    tarih: new Date().toISOString().slice(0, 10), yukleyen: BEN.eposta });
   }
+  if (!n) { alanYaz(eskiHtml); return; }
   const r = await sb.from('ppap_madde')
     .update({ dosyalar: eklenen, durum: 'yuklendi' }).eq('id', maddeId);
-  if (r.error) { mesaj('Kaydedilemedi: ' + r.error.message, 'hata'); return; }
+  if (r.error) { alanYaz(eskiHtml); mesaj('Kaydedilemedi: ' + r.error.message, 'hata'); return; }
   m.dosyalar = eklenen; m.durum = 'yuklendi';
-  mesaj('✅ Yüklendi.');
+  mesaj('✅ ' + n + ' dosya yüklendi (' + kacir(m.no) + '). Bitince en alttaki '
+    + '<b>📤 Gönderdim</b> düğmesini unutmayın.');
   tedProje(projeId);
 }
 
@@ -693,14 +711,26 @@ async function tedYorum(maddeId) {
 
 async function tedGonder(id) {
   const eksik = MADDELER.filter(m => m.durum === 'bekliyor');
-  if (eksik.length && !confirm(eksik.length + ' madde hâlâ boş:\n\n'
-      + eksik.slice(0, 8).map(m => '• ' + m.no + ' ' + m.ad).join('\n')
-      + (eksik.length > 8 ? '\n• …' : '') + '\n\nYine de gönderilsin mi?')) return;
+  const redli = MADDELER.filter(m => m.durum === 'red');
+  let uyari = '';
+  if (eksik.length) uyari += eksik.length + ' madde hâlâ boş:\n'
+    + eksik.slice(0, 6).map(m => '• ' + m.no + ' ' + m.ad).join('\n')
+    + (eksik.length > 6 ? '\n• …' : '') + '\n\n';
+  if (redli.length) uyari += redli.length + ' madde REDDEDİLMİŞ ve düzeltilmemiş:\n'
+    + redli.slice(0, 6).map(m => '• ' + m.no + ' ' + m.ad).join('\n') + '\n\n';
+  if (uyari && !confirm(uyari + 'Yine de gönderilsin mi?')) return;
+  const dugme = document.querySelector('.dugmeler .dugme');
+  if (dugme) { dugme.disabled = true; dugme.textContent = '⏳ Gönderiliyor…'; }
   // Proje durumunu tedarikci dogrudan yazamaz (RLS); sunucudaki islev yapar.
   const r = await sb.rpc('ppap_gonder', { p_id: id });
-  if (r.error) { mesaj('Gönderilemedi: ' + r.error.message, 'hata'); return; }
+  if (r.error) {
+    if (dugme) { dugme.disabled = false; dugme.textContent = '📤 Gönderdim — kalite incelesin'; }
+    mesaj('Gönderilemedi: ' + r.error.message, 'hata');
+    return;
+  }
   const p = PROJELER.find(x => x.id === id); if (p) p.durum = 'incelemede';
-  mesaj('📤 Gönderildi — kalite bölümü inceleyecek.');
+  mesaj('📤 Gönderildi — kalite bölümü inceleyecek. Kabul/red sonuçlarını ve '
+    + 'yorumları bu sayfadan takip edebilirsiniz.');
   tedProje(id);
 }
 

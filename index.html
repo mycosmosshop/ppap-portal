@@ -4,8 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="katalog.js?v=13"></script>
-<script src="sablon.js?v=13"></script>
+<script src="katalog.js?v=14"></script>
+<script src="sablon.js?v=14"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -70,8 +70,13 @@ label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:#3341
 .giris{max-width:380px;margin:9vh auto;background:#fff;border:1px solid var(--kenar);
   border-radius:14px;padding:26px}
 .giris .marka{display:inline-block;background:var(--antet);color:#fff;margin-bottom:14px}
-#mesaj{margin:0 auto 10px;max-width:1180px;padding:0 16px;font-size:13px}
+/* Bildirimler sag altta yuzer: sayfa asagi kaydirilmisken de gorunur.
+   Once sayfanin en ustundeydi; tedarikci madde listesindeyken hic
+   goremiyordu. */
+#mesaj{position:fixed;right:18px;bottom:18px;z-index:70;max-width:430px;font-size:13px;
+  box-shadow:0 6px 24px rgba(15,23,42,.18);border-radius:10px}
 #mesaj:empty{display:none}
+#mesaj .bilgi-kutu,#mesaj .uyari-kutu{margin:0}
 .dosya{display:flex;align-items:center;gap:7px;font-size:12px;margin-top:3px}
 /* PPAP element no — VDA numarasinin yanindaki ikinci numara */
 .ppapno{text-align:center;white-space:nowrap}
@@ -606,5 +611,5 @@ function maddeSatirlari(maddeler, ic, projeId) {
   return h;
 }
 </script>
-<script src="ppap2.js?v=13"></script>
+<script src="ppap2.js?v=14"></script>
 </body></html>
