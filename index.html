@@ -192,12 +192,7 @@ function girisEkraniniKur() {
     $('#g_alt2').innerHTML = 'Zaten hesabınız varsa <a href="#" id="g_gecis">giriş yapın</a>.';
     setTimeout(() => {
       const g = document.getElementById('g_gecis');
-      if (g) g.onclick = e => {
-        e.preventDefault();
-        $('#g_sifre2kutu').style.display = 'none';
-        btn.textContent = 'Giriş yap'; btn.dataset.mod = 'giris';
-        $('#g_alt2').textContent = '';
-      };
+      if (g) g.onclick = e => { e.preventDefault(); girisModunaGec(); };
     }, 0);
     btn.dataset.mod = 'kayit';
   } else if (DAVET && !DAVET_FIRMA) {
@@ -206,6 +201,16 @@ function girisEkraniniKur() {
     kutu.textContent = 'Bu davet bağlantısı geçersiz, süresi dolmuş ya da daha önce '
       + 'kullanılmış. Sanifoam kalite bölümünden yeni bir bağlantı isteyin.';
   }
+}
+
+// Kayit ekranindan giris ekranina gecis — uc yerden cagriliyor.
+function girisModunaGec() {
+  $('#g_sifre2kutu').style.display = 'none';
+  $('#g_baslik').textContent = 'Giriş yapın';
+  const b = $('#g_btn');
+  b.textContent = DAVET_FIRMA ? 'Giriş yap ve daveti kullan' : 'Giriş yap';
+  b.dataset.mod = 'giris';
+  $('#g_alt2').textContent = '';
 }
 
 async function davetiKullan() {
@@ -217,9 +222,11 @@ async function davetiKullan() {
       girisEkraniniKur();
       $('#giris').style.display = 'block';
       $('#g_hata').style.display = 'block';
-      $('#g_hata').innerHTML = '📧 Hesabınız oluşturuldu ama <b>e-posta doğrulaması</b> '
-        + 'bekleniyor. Posta kutunuzdaki bağlantıya bastıktan sonra <b>bu sayfaya geri '
-        + 'dönüp</b> aynı bilgilerle giriş yapın — davet o zaman kullanılır.';
+      girisModunaGec();
+      $('#g_hata').innerHTML = 'Oturum açılamadığı için davet henüz kullanılmadı.'
+        + '<div style="margin-top:6px">Şifrenizi yazıp <b>Giriş yap</b>’a basın; '
+        + 'hatırlamıyorsanız <b>“Şifrenizi mi unuttunuz?”</b> ile yenileyin. '
+        + 'Davet bağlantısı geçerliliğini koruyor.</div>';
       return;
     }
     const r = await sb.rpc('ppap_davet_kullan', { p_kod: DAVET });
@@ -338,14 +345,18 @@ $('#g_btn').onclick = async () => {
     const g = await sb.auth.signInWithPassword({ email: e, password: p });
     if (!g.error && g.data.session) {
       r = g;
-    } else if (r.error) {
-      // Hesap var ama sifre tutmadi — dogru yonlendirme sifre sifirlama.
+    } else {
+      // Hesap var, sifre tutmadi: formu GIRIS moduna al ki ayni duvara
+      // tekrar toslanmasin.
+      girisModunaGec();
+      $('#g_sifre').value = '';
+      $('#g_sifre').focus();
       $('#g_btn').disabled = false;
       $('#g_hata').style.display = 'block';
-      $('#g_hata').innerHTML = '<b>' + kacir(e) + '</b> ile daha önce hesap açılmış ve '
-        + 'girdiğiniz şifre tutmadı.<div style="margin-top:6px">Doğru şifreyi biliyorsanız '
-        + '<b>“giriş yapın”</b>a basın; bilmiyorsanız <b>“Şifrenizi mi unuttunuz?”</b> ile '
-        + 'yenileyin. Davet bağlantınız geçerli kalır.</div>';
+      $('#g_hata').innerHTML = '<b>' + kacir(e) + '</b> için hesap zaten var — yenisini '
+        + 'açmaya gerek yok.<div style="margin-top:6px">Şifrenizi yazıp <b>Giriş yap</b>’a '
+        + 'basın; davet aynı anda kullanılacak. Hatırlamıyorsanız '
+        + '<b>“Şifrenizi mi unuttunuz?”</b> ile yenileyin.</div>';
       return;
     }
   }
@@ -359,10 +370,11 @@ $('#g_btn').onclick = async () => {
   if (!r.data.session) {
     $('#giris').style.display = 'block';
     $('#g_hata').style.display = 'block';
-    $('#g_hata').innerHTML = '📧 <b>' + kacir(e) + '</b> için oturum açılamadı. '
-      + 'Bu adresle daha önce hesap açıldıysa <b>şifreniz farklı olabilir</b> — '
-      + '“giriş yapın”a basıp doğru şifreyi deneyin. Doğrulama postası geldiyse '
-      + 'oradaki bağlantıya bastıktan sonra bu sayfaya dönün.';
+    girisModunaGec();
+    $('#g_sifre').value = '';
+    $('#g_hata').innerHTML = '<b>' + kacir(e) + '</b> için oturum açılamadı. '
+      + 'Şifrenizi yazıp <b>Giriş yap</b>’a basın ya da '
+      + '<b>“Şifrenizi mi unuttunuz?”</b> ile yenileyin.';
     return;
   }
   if (DAVET && DAVET_FIRMA) { await davetiKullan(); return; }
