@@ -5,14 +5,29 @@ let OZET = {};        // proje_id -> {toplam, bekliyor, yuklendi, kabul, red, do
 
 // Tum projelerin madde ozeti TEK sorguda: tedarikci bazli listede her
 // projenin ilerlemesi ve son hareketi gorunsun diye.
-let BEKLEYEN = 0;      // onay bekleyen tedarikci kullanicisi sayisi
+let BEKLEYEN = 0, BEKLEYEN_LISTE = [];   // onay bekleyen tedarikci kullanicilari
+
+// Onay bekleyenler ANA EKRANDA gorunsun: dialog icindeki rozet kolayca
+// gozden kaciyor, "onay nereye geliyor" sorusu da oradan cikti.
+function onaySeridi() {
+  if (!BEKLEYEN) return '';
+  return '<div class="kart" style="border-left:5px solid var(--uyari);background:var(--uyari-bg)">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<b>⏳ ' + BEKLEYEN + ' tedarikçi kullanıcısı onayınızı bekliyor</b>'
+    + '<span class="soluk">' + BEKLEYEN_LISTE.slice(0, 3)
+        .map(x => kacir(x.eposta) + ' → ' + kacir(x.tedarikci)).join(' · ')
+    + (BEKLEYEN > 3 ? ' · …' : '') + '</span>'
+    + '<button class="dugme" style="margin-left:auto" onclick="kullaniciPenceresi()">'
+    + '✔ Onay ekranını aç</button></div></div>';
+}
 
 async function ozetleriYukle() {
   OZET = {};
   try {
-    const rb = await sb.from('ppap_kullanici').select('eposta').eq('aktif', false);
-    BEKLEYEN = (rb.data || []).length;
-  } catch (e) { BEKLEYEN = 0; }
+    const rb = await sb.from('ppap_kullanici').select('eposta,tedarikci').eq('aktif', false);
+    BEKLEYEN_LISTE = rb.data || [];
+    BEKLEYEN = BEKLEYEN_LISTE.length;
+  } catch (e) { BEKLEYEN = 0; BEKLEYEN_LISTE = []; }
   const r = await sb.from('ppap_madde')
     .select('proje_id,durum,gonderim,dosyalar,guncelleme');
   if (r.error) return;
@@ -48,7 +63,7 @@ async function icEkran() {
   if (GORUNUM === 'tedarikci') { tedarikciGorunumu(); return; }
   const say = { hazirlik: 0, tedarikcide: 0, incelemede: 0, onayli: 0, red: 0 };
   PROJELER.forEach(p => { say[p.durum] = (say[p.durum] || 0) + 1; });
-  $('#govde').innerHTML = '<div class="kart">'
+  $('#govde').innerHTML = onaySeridi() + '<div class="kart">'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     + '<h2 style="margin:0">PPAP projeleri</h2>'
     + '<span class="rozet r-tedarikcide">Tedarikçide ' + (say.tedarikcide || 0) + '</span>'
@@ -82,7 +97,7 @@ function tedarikciGorunumu() {
   const grup = {};
   PROJELER.forEach(p => { (grup[p.tedarikci] = grup[p.tedarikci] || []).push(p); });
   const adlar = Object.keys(grup).sort((a, b) => a.localeCompare(b, 'tr'));
-  let h = '<div class="kart">'
+  let h = onaySeridi() + '<div class="kart">'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     + '<h2 style="margin:0">Tedarikçiler</h2>'
     + '<span class="rozet r-hazirlik">' + adlar.length + ' firma</span>'
