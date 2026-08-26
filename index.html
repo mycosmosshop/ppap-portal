@@ -202,23 +202,30 @@ async function davetiKullan() {
 }
 async function kimlikBelirle(oturum) {
   const eposta = oturum.user.email || '';
-  let ic = false, tedarikci = '';
-  try {
-    const r = await sb.from('erp_users').select('approved').eq('id', oturum.user.id).maybeSingle();
-    ic = !!(r.data && r.data.approved);
-  } catch (e) {}
+  let ic = false, tedarikci = '', neden = [];
+  // ERP'de onayli hesap = ic kullanici (kalite). Sorgu hatasi ONCEDEN
+  // sessizce yutuluyordu; artik sebebi ekranda yaziyor.
+  const ru = await sb.from('erp_users').select('id,approved').eq('id', oturum.user.id).maybeSingle();
+  if (ru.error) neden.push('erp_users: ' + ru.error.message);
+  else if (!ru.data) neden.push('erp_users kaydı yok');
+  else if (!ru.data.approved) neden.push('ERP hesabı henüz onaylı değil');
+  ic = !!(ru.data && ru.data.approved);
+
   if (!ic) {
-    try {
-      const r = await sb.from('ppap_kullanici').select('tedarikci,aktif')
-        .ilike('eposta', eposta).maybeSingle();
-      if (r.data && r.data.aktif) tedarikci = r.data.tedarikci;
-    } catch (e) {}
+    const rk = await sb.from('ppap_kullanici').select('tedarikci,aktif')
+      .ilike('eposta', eposta).maybeSingle();
+    if (rk.error) neden.push('ppap_kullanici: ' + rk.error.message);
+    else if (rk.data && rk.data.aktif) tedarikci = rk.data.tedarikci;
+    else neden.push('tedarikçi eşleşmesi yok');
   }
   if (!ic && !tedarikci) {
     $('#giris').style.display = 'block';
     $('#g_hata').style.display = 'block';
-    $('#g_hata').textContent = 'Bu hesap PPAP portalına tanımlı değil. '
-      + 'Sanifoam kalite bölümüyle iletişime geçin.';
+    $('#g_hata').innerHTML = '<b>' + kacir(eposta) + '</b> PPAP portalına tanımlı değil.'
+      + '<div class="soluk" style="margin-top:6px">Sebep: ' + kacir(neden.join(' · ')) + '</div>'
+      + '<div class="soluk" style="margin-top:6px">Kalite bölümü için: ERP portalında hesabınızın '
+      + '<b>onaylı</b> olması gerekir. Tedarikçi iseniz size gönderilen <b>davet bağlantısını</b> '
+      + 'kullanın.</div>';
     await sb.auth.signOut();
     return;
   }
