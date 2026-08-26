@@ -352,7 +352,10 @@ function maddeSatirlari(maddeler, ic, projeId) {
         + (met(m.ted_yorum) ? '<div class="soluk">🗨 ' + kacir(m.ted_yorum) + '</div>' : '')
         + (m.dosyalar || []).map(f => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
             + JSON.stringify(f).replace(/"/g, '&quot;') + ');return false">' + kacir(f.ad) + '</a>'
-            + '<span class="soluk">' + kb(f.boyut || 0) + '</span></div>').join('')
+            + '<span class="soluk">' + kb(f.boyut || 0)
+            + (met(f.tarih) ? ' · ' + kacir(f.tarih) : '')
+            + (met(f.yukleyen) ? ' · ' + kacir(f.yukleyen) : '')
+            + '</span></div>').join('')
         + (SABLON[m.no] ? '<div class="dosya">📄 <a href="#" onclick="sablonIndir('
             + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false"><b>Boş formatı indir</b> — '
             + kacir(SABLON[m.no].ad) + '</a></div>' : '')

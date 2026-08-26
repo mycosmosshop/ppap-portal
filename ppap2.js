@@ -1,10 +1,45 @@
 // ── İÇ YÜZ (kalite) ───────────────────────────────────────────────────────
 let PROJELER = [], MADDELER = [], ACIK = null;
+let GORUNUM = localStorage.getItem('ppap_gorunum') || 'tedarikci';   // tedarikci | proje
+let OZET = {};        // proje_id -> {toplam, bekliyor, yuklendi, kabul, red, dosya, sonHareket}
+
+// Tum projelerin madde ozeti TEK sorguda: tedarikci bazli listede her
+// projenin ilerlemesi ve son hareketi gorunsun diye.
+async function ozetleriYukle() {
+  OZET = {};
+  const r = await sb.from('ppap_madde')
+    .select('proje_id,durum,gonderim,dosyalar,guncelleme');
+  if (r.error) return;
+  (r.data || []).forEach(m => {
+    const o = OZET[m.proje_id] = OZET[m.proje_id]
+      || { toplam: 0, bekliyor: 0, yuklendi: 0, kabul: 0, red: 0, dosya: 0, sonHareket: '' };
+    if (!m.gonderim) return;
+    o.toplam++;
+    o[m.durum] = (o[m.durum] || 0) + 1;
+    o.dosya += (m.dosyalar || []).length;
+    if (met(m.guncelleme) > o.sonHareket) o.sonHareket = met(m.guncelleme);
+  });
+}
+function gorunumDegis(g) {
+  GORUNUM = g; localStorage.setItem('ppap_gorunum', g); icEkran();
+}
+function ozetCubugu(o) {
+  if (!o || !o.toplam) return '<span class="soluk">madde yok</span>';
+  const t = (o.kabul || 0) + (o.yuklendi || 0);
+  return '<div class="ilerleme" style="max-width:180px"><div style="width:'
+    + Math.round(t * 100 / o.toplam) + '%"></div></div>'
+    + '<span class="soluk">' + t + '/' + o.toplam + ' madde'
+    + (o.dosya ? ' · ' + o.dosya + ' dosya' : '')
+    + (o.red ? ' · <b style="color:var(--sil)">' + o.red + ' red</b>' : '')
+    + '</span>';
+}
 
 async function icEkran() {
   const r = await sb.from('ppap_proje').select('*').order('olusturma', { ascending: false });
   if (r.error) { mesaj('Projeler okunamadı: ' + r.error.message + ' — KURULUM.sql çalıştırıldı mı?', 'hata'); return; }
   PROJELER = r.data || [];
+  await ozetleriYukle();
+  if (GORUNUM === 'tedarikci') { tedarikciGorunumu(); return; }
   const say = { hazirlik: 0, tedarikcide: 0, incelemede: 0, onayli: 0, red: 0 };
   PROJELER.forEach(p => { say[p.durum] = (say[p.durum] || 0) + 1; });
   $('#govde').innerHTML = '<div class="kart">'
@@ -14,6 +49,7 @@ async function icEkran() {
     + '<span class="rozet r-incelemede">İncelemede ' + (say.incelemede || 0) + '</span>'
     + '<span class="rozet r-onayli">Onaylı ' + (say.onayli || 0) + '</span>'
     + '<div style="margin-left:auto;display:flex;gap:8px">'
+    + '<button class="dugme duz" onclick="gorunumDegis(\'tedarikci\')">🏭 Tedarikçi görünümü</button>'
     + '<button class="dugme duz" onclick="kullaniciPenceresi()">👤 Tedarikçi kullanıcıları</button>'
     + '<button class="dugme" onclick="yeniProje()">➕ Yeni PPAP</button></div></div>'
     + (PROJELER.length
@@ -31,6 +67,59 @@ async function icEkran() {
         : '<div class="bilgi-kutu">Henüz PPAP projesi yok. <b>➕ Yeni PPAP</b> ile başlayın — '
           + 'tedarikçiyi onaylı listeden seçersiniz.</div>')
     + '</div>';
+}
+
+// TEDARIKCI BAZLI GORUNUM: her firma tek kartta — kac proje, ne kadari
+// tamam, kac dosya geldi, en son ne zaman hareket oldu.
+function tedarikciGorunumu() {
+  const grup = {};
+  PROJELER.forEach(p => { (grup[p.tedarikci] = grup[p.tedarikci] || []).push(p); });
+  const adlar = Object.keys(grup).sort((a, b) => a.localeCompare(b, 'tr'));
+  let h = '<div class="kart">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<h2 style="margin:0">Tedarikçiler</h2>'
+    + '<span class="rozet r-hazirlik">' + adlar.length + ' firma</span>'
+    + '<span class="rozet r-incelemede">' + PROJELER.length + ' PPAP</span>'
+    + '<div style="margin-left:auto;display:flex;gap:8px">'
+    + '<button class="dugme duz" onclick="gorunumDegis(\'proje\')">📋 Proje listesi</button>'
+    + '<button class="dugme duz" onclick="kullaniciPenceresi()">👤 Tedarikçi kullanıcıları</button>'
+    + '<button class="dugme" onclick="yeniProje()">➕ Yeni PPAP</button></div></div>'
+    + (adlar.length ? '' : '<div class="bilgi-kutu">Henüz PPAP projesi yok. Onaylı '
+        + 'tedarikçi listesindeki 🧪 PPAP düğmesinden başlatabilirsiniz.</div>')
+    + '</div>';
+  adlar.forEach(ad => {
+    const liste = grup[ad];
+    const top = liste.reduce((o, p) => {
+      const z = OZET[p.id] || {};
+      o.toplam += z.toplam || 0; o.kabul += z.kabul || 0; o.yuklendi += z.yuklendi || 0;
+      o.red += z.red || 0; o.dosya += z.dosya || 0;
+      if (met(z.sonHareket) > o.sonHareket) o.sonHareket = met(z.sonHareket);
+      return o;
+    }, { toplam: 0, kabul: 0, yuklendi: 0, red: 0, dosya: 0, sonHareket: '' });
+    h += '<div class="kart"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<h3 style="margin:0">' + kacir(ad) + '</h3>'
+      + '<span class="rozet r-hazirlik">' + liste.length + ' parça</span>'
+      + (top.red ? '<span class="rozet r-red">' + top.red + ' red</span>' : '')
+      + '<span class="soluk" style="margin-left:auto">'
+      + (top.sonHareket ? 'son hareket: ' + met(top.sonHareket).slice(0, 10) : 'hareket yok')
+      + (top.dosya ? ' · ' + top.dosya + ' dosya' : '') + '</span></div>'
+      + ozetCubugu(top)
+      + '<table style="margin-top:10px"><thead><tr><th>Parça</th><th>Müşteri</th>'
+      + '<th>Seviye</th><th>Durum</th><th>İlerleme</th><th>Son hareket</th><th></th></tr></thead><tbody>'
+      + liste.map(p => {
+          const z = OZET[p.id] || {};
+          return '<tr><td><b>' + kacir(p.parca_no) + '</b>'
+            + (met(p.parca_ad) ? '<div class="soluk">' + kacir(p.parca_ad) + '</div>' : '') + '</td>'
+            + '<td>' + kacir(p.musteri) + '</td><td>' + kacir(p.seviye) + '</td>'
+            + '<td><span class="rozet r-' + p.durum + '">' + (DURUM_AD[p.durum] || p.durum) + '</span></td>'
+            + '<td>' + ozetCubugu(z) + '</td>'
+            + '<td class="soluk">' + (met(z.sonHareket).slice(0, 10) || '—') + '</td>'
+            + '<td><button class="dugme kucuk" onclick="projeAc('
+            + JSON.stringify(p.id).replace(/"/g, '&quot;') + ')">Aç</button></td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  });
+  $('#govde').innerHTML = h;
 }
 
 // Onaylı tedarikçi listesi (diğer projeden, yalnız okunur)
@@ -106,7 +195,7 @@ async function projeAc(id) {
   const A = JSON.stringify(id).replace(/"/g, '&quot;');
   $('#govde').innerHTML = '<div class="kart">'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-    + '<button class="dugme duz kucuk" onclick="icEkran()">← Projeler</button>'
+    + '<button class="dugme duz kucuk" onclick="icEkran()">← Geri</button>'
     + '<h2 style="margin:0">' + kacir(p.tedarikci) + ' — ' + kacir(p.parca_no) + '</h2>'
     + '<span class="rozet r-' + p.durum + '">' + (DURUM_AD[p.durum] || p.durum) + '</span>'
     + '<div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">'
