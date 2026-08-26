@@ -340,7 +340,11 @@ async function kullaniciPenceresi() {
                   : '<input id="k_ted">')
     + '<label>Kişi adı (isteğe bağlı)</label><input id="k_ad">'
     + '<div class="dugmeler"><button class="dugme" id="k_davet">🔗 Davet linki oluştur</button>'
-    + '<button class="dugme duz" id="k_ekle">Var olan hesabı bağla</button></div>'
+    + '<button class="dugme duz" id="k_kuyruk">⏳ Onay kuyruğuna ekle</button>'
+    + '<button class="dugme duz" id="k_ekle">✔ Bağla ve onayla</button></div>'
+    + '<div class="soluk" style="margin-top:6px">Tedarikçi giriş yapmakta zorlanıyorsa '
+    + '<b>Onay kuyruğuna ekle</b> deyin: kayıt onayınızı bekler duruma düşer, siz '
+    + 'onaylarsınız, o da hazır olduğunda girer.</div>'
     + (liste.length
         ? '<table style="margin-top:14px"><thead><tr><th>E-posta</th><th>Tedarikçi</th>'
           + '<th>Durum</th><th></th></tr></thead><tbody>'
@@ -401,6 +405,20 @@ async function kullaniciPenceresi() {
     kapat();
     davetPenceresi(t, location.href.split('?')[0].split('#')[0] + '?davet=' + kod,
                    p.querySelector('#k_mail').value.trim());
+  };
+  // Tedarikci giris yapamasa da onay kuyruguna dussun: kayit aktif=false
+  // acilir, kalite onaylayinca girer. Girise bagimliligi kirar.
+  p.querySelector('#k_kuyruk').onclick = async () => {
+    const mail = p.querySelector('#k_mail').value.trim().toLowerCase();
+    const t = p.querySelector('#k_ted').value.trim();
+    if (!mail || !t) { mesaj('E-posta ve tedarikçi gerekli.', 'hata'); return; }
+    const r2 = await sb.from('ppap_kullanici').upsert({
+      eposta: mail, tedarikci: t, ad: p.querySelector('#k_ad').value.trim(), aktif: false });
+    if (r2.error) { mesaj('Eklenemedi: ' + r2.error.message, 'hata'); return; }
+    kapat();
+    mesaj('⏳ ' + mail + ' → ' + t + ' · onay kuyruğuna eklendi.');
+    await ozetleriYukle();
+    (GORUNUM === 'tedarikci') ? tedarikciGorunumu() : icEkran();
   };
   p.querySelector('#k_ekle').onclick = async () => {
     const mail = p.querySelector('#k_mail').value.trim().toLowerCase();
