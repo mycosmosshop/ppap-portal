@@ -15,6 +15,11 @@ const SABLON = {
   "dosya": "Ölçü Kontrol Raporu Mercedes.xls",
   "anahtar": "PPAPSABLON_3.1.3_l_Kontrol_Raporu_Mercedes.xls.json"
  },
+ "5.4": {
+  "ad": "FR86 MSA — 3 sayısal Gage R&R + 3 attribute çalışma (formüllü)",
+  "dosya": "FR86 MSA Gage RR + Attribute (BOS FORMAT).xlsx",
+  "anahtar": "PPAPSABLON_5.4_FR86_MSA_Gage_RR_+_Attribute_(BOS_FORMAT).xlsx.json"
+ },
  "5.5": {
   "ad": "Parça Geçmişi",
   "dosya": "Parts History.xlsx",
