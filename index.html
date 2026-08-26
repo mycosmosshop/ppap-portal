@@ -73,6 +73,10 @@ label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:#3341
 #mesaj{margin:0 auto 10px;max-width:1180px;padding:0 16px;font-size:13px}
 #mesaj:empty{display:none}
 .dosya{display:flex;align-items:center;gap:7px;font-size:12px;margin-top:3px}
+/* PPAP element no — VDA numarasinin yanindaki ikinci numara */
+.ppapno{text-align:center;white-space:nowrap}
+.ppapno span{display:inline-block;min-width:22px;background:#ede7f6;color:#5e35b1;
+  border-radius:6px;padding:1px 7px;font-weight:700;font-size:12px;cursor:help}
 .suruk{border:2px dashed #b3d4f5;background:#fafcff;border-radius:8px;padding:12px;
   text-align:center;color:#5b7fa6;font-size:12.5px;cursor:pointer;margin-top:6px}
 </style></head>
@@ -358,6 +362,12 @@ async function sablonIndir(no) {
   await dosyaAc({ ad: t.dosya, anahtar: t.anahtar });
 }
 
+// PPAP no: AIAG PPAP (4. baski) element karsiligi. VDA numarasi musteriye
+// giden formla ayni kalsin diye YERINE gecmiyor, YANINA ekleniyor.
+// Katalogdan tek seferde kuruluyor (her satirda arama yapilmasin).
+const PPAP_NO = {};
+(VDA2.maddeler || []).forEach(m => { if (m.ppap) PPAP_NO[m.no] = m.ppap; });
+
 function ilerlemeCubugu(maddeler) {
   const g = maddeler.filter(m => m.gonderim);
   const t = g.filter(m => m.durum === 'kabul' || m.durum === 'yuklendi').length;
@@ -374,12 +384,16 @@ function maddeSatirlari(maddeler, ic, projeId) {
   Object.keys(gruplar).sort().forEach(g => {
     const liste = gruplar[g].filter(m => ic || m.gonderim);
     if (!liste.length) return;
-    h += '<tr class="grup-bas"><td colspan="' + (ic ? 5 : 4) + '">'
+    h += '<tr class="grup-bas"><td colspan="' + (ic ? 6 : 5) + '">'
       + kacir(g + '. ' + (VDA2.grup_ad[g] || '')) + '</td></tr>';
     liste.sort((a, b) => a.no.localeCompare(b.no, undefined, { numeric:true }));
     liste.forEach(m => {
       const A = JSON.stringify(m.id).replace(/"/g, '&quot;');
+      const pp = PPAP_NO[m.no] || '';
       h += '<tr><td style="white-space:nowrap"><b>' + kacir(m.no) + '</b></td>'
+        + '<td class="ppapno">' + (pp
+            ? '<span title="' + kacir((VDA2.ppap_ad || {})[pp] || '') + '">' + kacir(pp) + '</span>'
+            : '<span class="soluk">—</span>') + '</td>'
         + '<td>' + kacir(m.ad)
         + (met(m.yorum) ? '<div class="soluk" style="color:var(--sil)">💬 ' + kacir(m.yorum) + '</div>' : '')
         + (met(m.ted_yorum) ? '<div class="soluk">🗨 ' + kacir(m.ted_yorum) + '</div>' : '')

@@ -218,8 +218,10 @@ async function projeAc(id) {
     + (met(p.aciklama) ? '<div class="bilgi-kutu">' + kacir(p.aciklama) + '</div>' : '')
     + '</div><div class="kart"><h3>VDA 2 madde listesi</h3>'
     + '<div class="soluk">“gerekli” ve “gönderilecek” işaretleri VDA 2 Anlage 2 anlaşmasının '
-    + 'karşılığıdır. Tedarikçi yalnız <b>gönderilecek</b> işaretli maddeleri görür.</div>'
-    + '<table><thead><tr><th>No</th><th>Madde</th><th>Kapsam</th><th>Durum</th><th></th></tr></thead>'
+    + 'karşılığıdır. Tedarikçi yalnız <b>gönderilecek</b> işaretli maddeleri görür. '
+    + '<b>PPAP</b> sütunu AIAG PPAP (4. baskı) element numarasıdır — üstüne gelince adı çıkar.</div>'
+    + '<table><thead><tr><th>VDA no</th><th title="AIAG PPAP element numarası">PPAP</th>'
+    + '<th>Madde</th><th>Kapsam</th><th>Durum</th><th></th></tr></thead>'
     + '<tbody>' + maddeSatirlari(MADDELER, true, id) + '</tbody></table></div>';
 }
 
@@ -439,7 +441,8 @@ async function tedProje(id) {
     + 'işaretler; red edilen maddede sebebi burada görürsünüz.</div>'
     + (met(p.aciklama) ? '<div class="uyari-kutu">' + kacir(p.aciklama) + '</div>' : '')
     + '</div><div class="kart">'
-    + '<table><thead><tr><th>No</th><th>Belge</th><th>Durum</th><th></th></tr></thead>'
+    + '<table><thead><tr><th>VDA no</th><th title="AIAG PPAP element numarası">PPAP</th>'
+    + '<th>Belge</th><th>Durum</th><th></th></tr></thead>'
     + '<tbody>' + maddeSatirlari(MADDELER, false, id) + '</tbody></table>'
     + '<div class="dugmeler"><button class="dugme" onclick="tedGonder(' + JSON.stringify(id).replace(/"/g, '&quot;') + ')">'
     + '📤 Gönderdim — kalite incelesin</button></div></div>';
