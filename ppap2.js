@@ -167,7 +167,9 @@ function tedarikciGorunumu() {
       + '<span class="soluk" style="margin-left:auto">'
       + (top.sonHareket ? 'son hareket: ' + met(top.sonHareket).slice(0, 10) : 'hareket yok')
       + (top.dosya ? ' · ' + top.dosya + ' dosya' : '') + '</span></div>'
-      + ozetCubugu(top)
+      // Tek parcali firmada toplam cubuk satirdakiyle birebir ayni —
+      // tekrar olmasin; birden cok parca varsa toplam anlamli.
+      + (liste.length > 1 ? ozetCubugu(top) : '')
       + '<table style="margin-top:10px"><thead><tr><th>Parça</th><th>Müşteri</th>'
       + '<th>Seviye</th><th>Durum</th><th>İlerleme</th><th>Son hareket</th><th></th></tr></thead><tbody>'
       + liste.map(p => {
