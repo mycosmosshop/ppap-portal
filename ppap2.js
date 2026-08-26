@@ -280,7 +280,8 @@ async function maddeKarar(maddeId, karar) {
   const m = MADDELER.find(x => x.id === maddeId);
   let yorum = m ? met(m.yorum) : '';
   if (karar === 'red') {
-    const c = prompt('Red sebebi (tedarikçi bu notu görür):', yorum);
+    const c = await soruModal('✖ Reddet — ' + (m ? kacir(m.no) + ' ' + kacir(m.ad) : ''),
+      'Red sebebi (tedarikçi bu notu görür)', yorum);
     if (c === null) return;
     yorum = c.trim();
   }
@@ -611,7 +612,8 @@ async function dosyaYukle(projeId, maddeId, files) {
 
 async function tedYorum(maddeId) {
   const m = MADDELER.find(x => x.id === maddeId); if (!m) return;
-  const c = prompt('Kalite bölümüne notunuz:', met(m.ted_yorum));
+  const c = await soruModal('🗨 Not — ' + kacir(m.no) + ' ' + kacir(m.ad),
+    'Kalite bölümüne notunuz (isteğe bağlı)', met(m.ted_yorum));
   if (c === null) return;
   const r = await sb.from('ppap_madde').update({ ted_yorum: c.trim() }).eq('id', maddeId);
   if (r.error) { mesaj('Kaydedilemedi: ' + r.error.message, 'hata'); return; }
