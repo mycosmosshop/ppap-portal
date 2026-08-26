@@ -205,11 +205,18 @@ async function kimlikBelirle(oturum) {
   let ic = false, tedarikci = '', neden = [];
   // ERP'de onayli hesap = ic kullanici (kalite). Sorgu hatasi ONCEDEN
   // sessizce yutuluyordu; artik sebebi ekranda yaziyor.
-  const ru = await sb.from('erp_users').select('id,approved').eq('id', oturum.user.id).maybeSingle();
-  if (ru.error) neden.push('erp_users: ' + ru.error.message);
-  else if (!ru.data) neden.push('erp_users kaydı yok');
-  else if (!ru.data.approved) neden.push('ERP hesabı henüz onaylı değil');
-  ic = !!(ru.data && ru.data.approved);
+  // Kontrol RLS'e takilmasin diye sunucudaki islevle yapiliyor: erp_users
+  // uzerindeki 'auth.uid() = id' kurali dogrudan sorguda satir dondurmuyordu
+  // (istege kimlik ilismiyor gorunuyordu), islev security definer.
+  const rk0 = await sb.rpc('ppap_kim');
+  const kim = (rk0 && rk0.data) || {};
+  if (rk0 && rk0.error) neden.push('ppap_kim: ' + rk0.error.message);
+  ic = !!kim.erp_onayli;
+  if (!ic) {
+    if (!kim.uid) neden.push('oturum sunucuya ulaşmadı (uid yok)');
+    else if (!kim.erp_kayit) neden.push('erp_users kaydı yok (uid ' + met(kim.uid).slice(0, 8) + '…)');
+    else neden.push('ERP hesabı onaylı değil');
+  }
 
   let bekliyor = null;
   if (!ic) {
