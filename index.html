@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="tr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tedarikçi PPAP Portalı — Sanifoam</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="katalog.js"></script>
+<style>
+:root{
+  --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
+  --kenar:#dbe3ec; --soluk:#64748b; --metin:#0f172a;
+  --ok:#15803d; --ok-bg:#dcfce7; --uyari:#b45309; --uyari-bg:#fef3c7;
+  --sil:#b91c1c; --sil-bg:#fee2e2; --bilgi:#1d4ed8; --bilgi-bg:#dbeafe;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--zemin);color:var(--metin);
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:14px}
+.ust{background:linear-gradient(100deg,var(--antet),var(--antet2));color:#fff;padding:11px 16px}
+.ust-satir{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.marka{background:#fff;color:var(--antet);font-weight:700;padding:5px 12px;border-radius:8px}
+.baslik{font-weight:600;font-size:15px}
+.kim{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:12.5px}
+.cip{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.25);
+  border-radius:7px;padding:5px 11px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.cip:hover{background:rgba(255,255,255,.24)}
+.govde{padding:16px;max-width:1180px;margin:0 auto}
+.kart{background:var(--kart);border:1px solid var(--kenar);border-radius:11px;padding:16px 18px;
+  margin-bottom:14px}
+h2{font-size:16px;margin:0 0 10px}
+h3{font-size:14.5px;margin:0 0 6px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11.5px;color:var(--soluk);font-weight:600;padding:7px 9px;
+  border-bottom:1px solid var(--kenar);white-space:nowrap}
+td{padding:8px 9px;border-bottom:1px solid #eef2f7;vertical-align:top}
+tr:last-child td{border-bottom:0}
+.dugme{background:var(--antet2);color:#fff;border:0;border-radius:7px;padding:8px 15px;
+  cursor:pointer;font-size:13px;font-family:inherit;font-weight:600}
+.dugme.duz{background:#fff;color:var(--metin);border:1px solid var(--kenar);font-weight:500}
+.dugme.kucuk{padding:5px 10px;font-size:12px}
+.dugme:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--kenar);border-radius:7px;
+  font-size:13px;font-family:inherit;background:#fff;color:var(--metin)}
+textarea{min-height:62px;resize:vertical}
+label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:#334155}
+.satirlar{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.rozet{font-size:11.5px;border-radius:20px;padding:2px 9px;white-space:nowrap;font-weight:600}
+.r-bekliyor{background:#eceff3;color:var(--soluk)}
+.r-yuklendi{background:var(--bilgi-bg);color:var(--bilgi)}
+.r-kabul{background:var(--ok-bg);color:var(--ok)}
+.r-red{background:var(--sil-bg);color:var(--sil)}
+.r-hazirlik{background:#eceff3;color:var(--soluk)}
+.r-tedarikcide{background:var(--uyari-bg);color:var(--uyari)}
+.r-incelemede{background:var(--bilgi-bg);color:var(--bilgi)}
+.r-onayli{background:var(--ok-bg);color:var(--ok)}
+.grup-bas{background:#f8fafc;font-weight:650;font-size:13px}
+.ilerleme{background:#e3eefb;border-radius:8px;height:10px;overflow:hidden;margin:6px 0}
+.ilerleme > div{height:100%;background:linear-gradient(90deg,#4CAF50,#2e7d32)}
+.perde{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;display:flex;
+  align-items:center;justify-content:center;padding:18px}
+.pencere{background:#fff;border-radius:12px;width:100%;max-width:620px;padding:20px 22px;
+  max-height:90vh;overflow:auto}
+.dugmeler{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.dugmeler .sag{margin-left:auto}
+.bilgi-kutu{background:#eef4fa;border-left:4px solid var(--antet2);border-radius:9px;
+  padding:10px 13px;font-size:12.5px;margin:8px 0}
+.uyari-kutu{background:var(--uyari-bg);border-left:4px solid var(--uyari);border-radius:9px;
+  padding:10px 13px;font-size:12.5px;margin:8px 0}
+.soluk{color:var(--soluk);font-size:12px}
+.giris{max-width:380px;margin:9vh auto;background:#fff;border:1px solid var(--kenar);
+  border-radius:14px;padding:26px}
+.giris .marka{display:inline-block;background:var(--antet);color:#fff;margin-bottom:14px}
+#mesaj{margin:0 auto 10px;max-width:1180px;padding:0 16px;font-size:13px}
+#mesaj:empty{display:none}
+.dosya{display:flex;align-items:center;gap:7px;font-size:12px;margin-top:3px}
+.suruk{border:2px dashed #b3d4f5;background:#fafcff;border-radius:8px;padding:12px;
+  text-align:center;color:#5b7fa6;font-size:12.5px;cursor:pointer;margin-top:6px}
+</style></head>
+<body>
+
+<div id="giris" class="giris" style="display:none">
+  <div class="marka">Sanifoam</div>
+  <h2>Tedarikçi PPAP Portalı</h2>
+  <div class="soluk">PPAP / VDA 2 belge sunumu. Kullanıcı bilgileriniz Sanifoam kalite
+    bölümü tarafından verilir.</div>
+  <label>E-posta</label><input id="g_mail" type="email" autocomplete="username">
+  <label>Şifre</label><input id="g_sifre" type="password" autocomplete="current-password">
+  <div class="dugmeler"><button class="dugme" style="flex:1" id="g_btn">Giriş yap</button></div>
+  <div id="g_hata" class="uyari-kutu" style="display:none"></div>
+</div>
+
+<div id="uygulama" style="display:none">
+  <div class="ust"><div class="ust-satir">
+    <div class="marka">Sanifoam</div>
+    <div class="baslik">Tedarikçi PPAP Portalı</div>
+    <div class="kim"><span id="kimlik"></span>
+      <button class="cip" onclick="cikis()">Çıkış</button></div>
+  </div></div>
+  <div id="mesaj"></div>
+  <div class="govde" id="govde"></div>
+</div>
+
+<script>
+// ── Bağlantılar ──────────────────────────────────────────────────────────
+// Kimlik + PPAP verisi ERP giris projesinde (kurallar auth.uid() ile calissin).
+const SB_URL = 'https://chchaielttnimuuezazb.supabase.co';
+const SB_KEY = 'sb_publishable_S2ywbq7TkgcZKiVif3td-A_oAuQL3QT';
+// Onayli tedarikci listesi ayri projede duruyor — yalniz OKUNUR.
+const PT_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
+const PT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
+// Dosyalar Drive'da (tedarikci sistemiyle ayni Apps Script) — Supabase sismesin.
+const DRIVE_URL = 'https://script.google.com/macros/s/AKfycby2nGHzpjJWEe-By16Urj865sLLvowSUPZC4_HyvCCzU4fyRwy6pXbfU3AumHwYMlWs_A/exec';
+const DRIVE_SECRET = 'Sanifoam2026Drive';
+
+const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true } });
+const $ = s => document.querySelector(s);
+const met = v => (v === null || v === undefined) ? '' : String(v);
+const kacir = t => met(t).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const kb = n => n > 1048576 ? (n/1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n/1024)) + ' KB';
+function mesaj(m, tur) {
+  $('#mesaj').innerHTML = m ? '<div class="' + (tur === 'hata' ? 'uyari-kutu' : 'bilgi-kutu') + '">'
+    + m + '</div>' : '';
+  if (m) setTimeout(() => { if ($('#mesaj').innerHTML.indexOf(m) >= 0) $('#mesaj').innerHTML = ''; }, 6000);
+}
+const DURUM_AD = { hazirlik:'Hazırlık', tedarikcide:'Tedarikçide', incelemede:'İncelemede',
+                   onayli:'Onaylı', red:'Reddedildi' };
+const MADDE_AD = { bekliyor:'Bekliyor', yuklendi:'Yüklendi', kabul:'Kabul', red:'Red' };
+
+let BEN = null;        // { eposta, ic:bool, tedarikci:'' }
+
+// ── Giriş ────────────────────────────────────────────────────────────────
+async function basla() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) { $('#giris').style.display = 'block'; return; }
+  await kimlikBelirle(data.session);
+}
+async function kimlikBelirle(oturum) {
+  const eposta = oturum.user.email || '';
+  let ic = false, tedarikci = '';
+  try {
+    const r = await sb.from('erp_users').select('approved').eq('id', oturum.user.id).maybeSingle();
+    ic = !!(r.data && r.data.approved);
+  } catch (e) {}
+  if (!ic) {
+    try {
+      const r = await sb.from('ppap_kullanici').select('tedarikci,aktif')
+        .ilike('eposta', eposta).maybeSingle();
+      if (r.data && r.data.aktif) tedarikci = r.data.tedarikci;
+    } catch (e) {}
+  }
+  if (!ic && !tedarikci) {
+    $('#giris').style.display = 'block';
+    $('#g_hata').style.display = 'block';
+    $('#g_hata').textContent = 'Bu hesap PPAP portalına tanımlı değil. '
+      + 'Sanifoam kalite bölümüyle iletişime geçin.';
+    await sb.auth.signOut();
+    return;
+  }
+  BEN = { eposta, ic, tedarikci };
+  $('#giris').style.display = 'none';
+  $('#uygulama').style.display = 'block';
+  $('#kimlik').textContent = eposta + (ic ? ' · Kalite' : ' · ' + tedarikci);
+  ic ? icEkran() : tedEkran();
+}
+$('#g_btn').onclick = async () => {
+  const e = $('#g_mail').value.trim(), p = $('#g_sifre').value;
+  if (!e || !p) return;
+  $('#g_btn').disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email: e, password: p });
+  $('#g_btn').disabled = false;
+  if (error) {
+    $('#g_hata').style.display = 'block';
+    $('#g_hata').textContent = 'Giriş yapılamadı: ' + error.message;
+    return;
+  }
+  await kimlikBelirle(data.session);
+};
+$('#g_sifre').addEventListener('keydown', e => { if (e.key === 'Enter') $('#g_btn').click(); });
+async function cikis() { await sb.auth.signOut(); location.reload(); }
+
+// ── Drive dosya katmanı ──────────────────────────────────────────────────
+// Apps Script metin saklıyor: dosya base64 olarak JSON içinde tutulur
+// (tedarikçi sisteminde de böyle). Supabase'de yalnız künye durur.
+function driveAnahtar(projeId, maddeNo, ad) {
+  return ('PPAP_' + projeId.slice(0, 8) + '_' + maddeNo + '_' + ad)
+    .replace(/[^a-zA-Z0-9._-]/g, '_') + '.json';
+}
+async function driveYaz(anahtar, icerik) {
+  await fetch(DRIVE_URL, { method:'POST', mode:'no-cors',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action:'save', secret: DRIVE_SECRET, name: anahtar, content: icerik }) });
+  await new Promise(r => setTimeout(r, 1500));
+}
+function driveOku(anahtar) {
+  return new Promise((cozum, hata) => {
+    const cb = '__ppapcb_' + Date.now() + '_' + Math.floor(Math.random() * 1e5);
+    const s = document.createElement('script');
+    const zaman = setTimeout(() => { temizle(); hata(new Error('Zaman aşımı')); }, 60000);
+    function temizle() { try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+      if (s.parentNode) s.parentNode.removeChild(s); clearTimeout(zaman); }
+    window[cb] = d => { temizle(); (d && d.success) ? cozum(d.content) : hata(new Error((d && d.error) || 'okunamadı')); };
+    s.src = DRIVE_URL + '?action=getfile&name=' + encodeURIComponent(anahtar)
+      + '&secret=' + encodeURIComponent(DRIVE_SECRET) + '&callback=' + cb;
+    s.onerror = () => { temizle(); hata(new Error('Drive bağlantı hatası')); };
+    document.body.appendChild(s);
+  });
+}
+async function dosyaAc(f) {
+  mesaj('📥 ' + kacir(f.ad) + ' açılıyor…');
+  try {
+    const ham = await driveOku(f.anahtar);
+    const veri = JSON.parse(ham);
+    const b = await (await fetch(veri.veri)).blob();
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u; a.download = f.ad; document.body.appendChild(a); a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 4000);
+    mesaj('');
+  } catch (e) { mesaj('Dosya açılamadı: ' + e.message, 'hata'); }
+}
+function dosyaOku(file) {
+  return new Promise(r => { const fr = new FileReader();
+    fr.onloadend = () => r(fr.result); fr.readAsDataURL(file); });
+}
+
+// ── Ortak: madde tablosu ─────────────────────────────────────────────────
+function ilerlemeCubugu(maddeler) {
+  const g = maddeler.filter(m => m.gonderim);
+  const t = g.filter(m => m.durum === 'kabul' || m.durum === 'yuklendi').length;
+  const y = g.length ? Math.round(t * 100 / g.length) : 0;
+  return '<div class="ilerleme"><div style="width:' + y + '%"></div></div>'
+    + '<div class="soluk"><b>' + t + ' / ' + g.length + '</b> madde tamam'
+    + (g.length - t ? ' · <b style="color:var(--uyari)">' + (g.length - t) + ' eksik</b>' : '')
+    + '</div>';
+}
+function maddeSatirlari(maddeler, ic, projeId) {
+  const gruplar = {};
+  maddeler.forEach(m => { (gruplar[m.grup] = gruplar[m.grup] || []).push(m); });
+  let h = '';
+  Object.keys(gruplar).sort().forEach(g => {
+    const liste = gruplar[g].filter(m => ic || m.gonderim);
+    if (!liste.length) return;
+    h += '<tr class="grup-bas"><td colspan="' + (ic ? 5 : 4) + '">'
+      + kacir(g + '. ' + (VDA2.grup_ad[g] || '')) + '</td></tr>';
+    liste.sort((a, b) => a.no.localeCompare(b.no, undefined, { numeric:true }));
+    liste.forEach(m => {
+      const A = JSON.stringify(m.id).replace(/"/g, '&quot;');
+      h += '<tr><td style="white-space:nowrap"><b>' + kacir(m.no) + '</b></td>'
+        + '<td>' + kacir(m.ad)
+        + (met(m.yorum) ? '<div class="soluk" style="color:var(--sil)">💬 ' + kacir(m.yorum) + '</div>' : '')
+        + (met(m.ted_yorum) ? '<div class="soluk">🗨 ' + kacir(m.ted_yorum) + '</div>' : '')
+        + (m.dosyalar || []).map(f => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
+            + JSON.stringify(f).replace(/"/g, '&quot;') + ');return false">' + kacir(f.ad) + '</a>'
+            + '<span class="soluk">' + kb(f.boyut || 0) + '</span></div>').join('')
+        + (!ic && m.gonderim ? '<div class="suruk" data-madde="' + kacir(m.id) + '">'
+            + '⬆️ Dosyayı buraya sürükleyin <span class="soluk">veya tıklayıp seçin</span></div>' : '')
+        + '</td>'
+        + (ic ? '<td style="white-space:nowrap">'
+            + '<label class="soluk" style="display:inline-flex;gap:4px;align-items:center;margin:0">'
+            + '<input type="checkbox" style="width:auto" ' + (m.gerekli ? 'checked' : '')
+            + ' onchange="maddeBayrak(' + A + ',\'gerekli\',this.checked)"> gerekli</label><br>'
+            + '<label class="soluk" style="display:inline-flex;gap:4px;align-items:center;margin:0">'
+            + '<input type="checkbox" style="width:auto" ' + (m.gonderim ? 'checked' : '')
+            + ' onchange="maddeBayrak(' + A + ',\'gonderim\',this.checked)"> gönderilecek</label></td>' : '')
+        + '<td><span class="rozet r-' + m.durum + '">' + (MADDE_AD[m.durum] || m.durum) + '</span></td>'
+        + '<td style="white-space:nowrap">'
+        + (ic
+            ? '<button class="dugme kucuk" onclick="maddeKarar(' + A + ',\'kabul\')">✔</button> '
+              + '<button class="dugme kucuk duz" onclick="maddeKarar(' + A + ',\'red\')">✖</button>'
+            : '<button class="dugme kucuk duz" onclick="tedYorum(' + A + ')">🗨 Not</button>')
+        + '</td></tr>';
+    });
+  });
+  return h;
+}
+</script>
+<script src="ppap2.js"></script>
+</body></html>
