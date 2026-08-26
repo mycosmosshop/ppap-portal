@@ -452,33 +452,6 @@ function dosyaOku(file) {
     fr.onloadend = () => r(fr.result); fr.readAsDataURL(file); });
 }
 
-// Tarayicinin prompt() kutusu yerine uygulamanin kendi modali.
-// null = vazgecti, metin = onaylandi.
-function soruModal(baslik, etiket, varsayilan) {
-  return new Promise(resolve => {
-    const p = document.createElement('div');
-    p.className = 'perde';
-    p.innerHTML = '<div class="pencere" style="max-width:480px">'
-      + '<h3>' + baslik + '</h3>'
-      + '<label>' + etiket + '</label>'
-      + '<textarea id="sm_metin"></textarea>'
-      + '<div class="dugmeler"><button class="dugme" id="sm_tamam">Tamam</button>'
-      + '<button class="dugme duz sag" id="sm_vazgec">Vazgeç</button></div></div>';
-    document.body.appendChild(p);
-    const kutu = p.querySelector('#sm_metin');
-    kutu.value = met(varsayilan);
-    const bitir = v => { p.remove(); resolve(v); };
-    p.addEventListener('click', e => { if (e.target === p) bitir(null); });
-    p.querySelector('#sm_vazgec').onclick = () => bitir(null);
-    p.querySelector('#sm_tamam').onclick = () => bitir(kutu.value);
-    kutu.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) bitir(kutu.value);
-      if (e.key === 'Escape') bitir(null);
-    });
-    kutu.focus();
-  });
-}
-
 // ── Ortak: madde tablosu ─────────────────────────────────────────────────
 // Bos format: kullanicinin KENDI formu Drive'da duruyor, tedarikci
 // buradan indirip doldurur ve ayni maddeye geri yukler.
