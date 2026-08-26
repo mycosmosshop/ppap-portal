@@ -160,6 +160,8 @@ async function kimlikBelirle(oturum) {
   $('#uygulama').style.display = 'block';
   $('#kimlik').textContent = eposta + (ic ? ' · Kalite' : ' · ' + tedarikci);
   ic ? icEkran() : tedEkran();
+  // Onayli listeden ?ted= ile gelindiyse dogrudan yeni proje penceresi acilir.
+  if (ic && new URLSearchParams(location.search).get('ted')) setTimeout(yeniProje, 400);
 }
 $('#g_btn').onclick = async () => {
   const e = $('#g_mail').value.trim(), p = $('#g_sifre').value;

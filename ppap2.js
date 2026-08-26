@@ -45,6 +45,8 @@ async function onayliTedarikciler() {
 
 async function yeniProje() {
   const ted = await onayliTedarikciler();
+  // Onayli listedeki PPAP dugmesi ?ted=<ad> ile gelir: tedarikci hazir secili.
+  const onSecili = new URLSearchParams(location.search).get('ted') || '';
   const p = document.createElement('div');
   p.className = 'perde';
   p.innerHTML = '<div class="pencere"><h2>➕ Yeni PPAP projesi</h2>'
@@ -52,8 +54,9 @@ async function yeniProje() {
     + 'sonra madde bazında değiştirebilirsiniz.</div>'
     + '<label>Tedarikçi</label>'
     + (ted.length
-        ? '<select id="p_ted">' + ted.map(x => '<option>' + kacir(x.ad) + '</option>').join('') + '</select>'
-        : '<input id="p_ted" placeholder="Tedarikçi adı"><div class="soluk">Onaylı liste okunamadı — '
+        ? '<select id="p_ted">' + ted.map(x => '<option' + (x.ad === onSecili ? ' selected' : '')
+            + '>' + kacir(x.ad) + '</option>').join('') + '</select>'
+        : '<input id="p_ted" value="' + kacir(onSecili).replace(/"/g, '&quot;') + '" placeholder="Tedarikçi adı"><div class="soluk">Onaylı liste okunamadı — '
           + 'adı elle yazabilirsiniz.</div>')
     + '<div class="satirlar">'
     + '<div><label>Parça no</label><input id="p_no" placeholder="700.0.454"></div>'
