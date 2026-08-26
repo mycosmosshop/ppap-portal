@@ -336,8 +336,11 @@ async function kullaniciPenceresi() {
     + 'Bağlantı tek kullanımlıktır ve 30 gün geçerlidir.</div>'
     + '<label>E-posta</label><input id="k_mail" type="email" placeholder="kalite@tedarikci.com">'
     + '<label>Tedarikçi</label>'
-    + (ted.length ? '<select id="k_ted">' + ted.map(x => '<option>' + kacir(x.ad) + '</option>').join('') + '</select>'
-                  : '<input id="k_ted">')
+    + (ted.length
+        ? '<select id="k_ted">' + ted.map(x => '<option'
+            + ((davetler[0] && x.ad === davetler[0].tedarikci) ? ' selected' : '')
+            + '>' + kacir(x.ad) + '</option>').join('') + '</select>'
+        : '<input id="k_ted" value="' + kacir((davetler[0] || {}).tedarikci || '') + '">')
     + '<label>Kişi adı (isteğe bağlı)</label><input id="k_ad">'
     + '<div class="dugmeler"><button class="dugme" id="k_davet">🔗 Davet linki oluştur</button>'
     + '<button class="dugme duz" id="k_kuyruk">⏳ Onay kuyruğuna ekle</button>'
@@ -383,7 +386,8 @@ async function kullaniciPenceresi() {
                 + '</td><td class="soluk">' + met(x.olusturma).slice(0, 10) + '</td>'
                 + '<td style="white-space:nowrap">'
                 + (x.kullanan ? ''
-                    : '<button class="dugme kucuk duz" onclick="davetPenceresi(' + T + ',' + L + ')">🔗 Linki gör</button> ')
+                    : '<button class="dugme kucuk" onclick="davettenKuyruk(' + T + ')">⏳ Onay kuyruğuna ekle</button> '
+                      + '<button class="dugme kucuk duz" onclick="davetPenceresi(' + T + ',' + L + ')">🔗 Linki gör</button> ')
                 + '<button class="dugme kucuk duz" onclick="davetSil(' + K + ')">Sil</button>'
                 + '</td></tr>';
             }).join('') + '</tbody></table>'
@@ -481,6 +485,21 @@ async function kullaniciOnay(eposta, aktif) {
   document.querySelectorAll('.perde').forEach(x => x.remove());
   await ozetleriYukle();
   kullaniciPenceresi();
+}
+
+// Davet satirindan tek tikla onay kuyruguna ekleme: firma zaten belli,
+// yalnizca e-posta sorulur. Tedarikci girise takilirsa bekletmesin diye.
+async function davettenKuyruk(tedarikci) {
+  const mail = (prompt('Tedarikçinin e-postası (' + tedarikci + '):') || '').trim().toLowerCase();
+  if (!mail) return;
+  if (mail.indexOf('@') < 0) { mesaj('Geçerli bir e-posta yazın.', 'hata'); return; }
+  const r = await sb.from('ppap_kullanici').upsert({
+    eposta: mail, tedarikci: tedarikci, aktif: false });
+  if (r.error) { mesaj('Eklenemedi: ' + r.error.message, 'hata'); return; }
+  document.querySelectorAll('.perde').forEach(x => x.remove());
+  mesaj('⏳ ' + mail + ' → ' + tedarikci + ' · onay kuyruğuna eklendi.');
+  await ozetleriYukle();
+  (GORUNUM === 'tedarikci') ? tedarikciGorunumu() : icEkran();
 }
 
 async function davetSil(kod) {
