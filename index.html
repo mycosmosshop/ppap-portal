@@ -80,12 +80,16 @@ label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:#3341
 
 <div id="giris" class="giris" style="display:none">
   <div class="marka">Sanifoam</div>
-  <h2>Tedarikçi PPAP Portalı</h2>
-  <div class="soluk">PPAP / VDA 2 belge sunumu. Kullanıcı bilgileriniz Sanifoam kalite
-    bölümü tarafından verilir.</div>
+  <h2 id="g_baslik">Tedarikçi PPAP Portalı</h2>
+  <div class="soluk" id="g_alt">PPAP / VDA 2 belge sunumu.</div>
+  <div id="g_davet" class="bilgi-kutu" style="display:none"></div>
   <label>E-posta</label><input id="g_mail" type="email" autocomplete="username">
   <label>Şifre</label><input id="g_sifre" type="password" autocomplete="current-password">
+  <div id="g_sifre2kutu" style="display:none">
+    <label>Şifre (tekrar)</label><input id="g_sifre2" type="password" autocomplete="new-password">
+  </div>
   <div class="dugmeler"><button class="dugme" style="flex:1" id="g_btn">Giriş yap</button></div>
+  <div id="g_alt2" class="soluk" style="margin-top:10px;text-align:center"></div>
   <div id="g_hata" class="uyari-kutu" style="display:none"></div>
 </div>
 
@@ -128,11 +132,73 @@ const MADDE_AD = { bekliyor:'Bekliyor', yuklendi:'Yüklendi', kabul:'Kabul', red
 
 let BEN = null;        // { eposta, ic:bool, tedarikci:'' }
 
-// ── Giriş ────────────────────────────────────────────────────────────────
+// ── Giriş / davet ────────────────────────────────────────────────────────
+// DAVET: kalite bir link uretir (?davet=<kod>). Tedarikci linki acar, KENDI
+// sifresini belirler; kod onu dogru tedarikciye baglar ve bir daha
+// kullanilamaz. Boylece hesap acma/sifre iletme isi ortadan kalkar.
+const DAVET = new URLSearchParams(location.search).get('davet') || '';
+let DAVET_FIRMA = '';
+
 async function basla() {
+  if (DAVET) {
+    try {
+      const r = await sb.rpc('ppap_davet_bilgi', { p_kod: DAVET });
+      DAVET_FIRMA = (r && r.data) || '';
+    } catch (e) {}
+  }
   const { data } = await sb.auth.getSession();
-  if (!data.session) { $('#giris').style.display = 'block'; return; }
-  await kimlikBelirle(data.session);
+  if (data.session) {
+    if (DAVET && DAVET_FIRMA) { await davetiKullan(); return; }
+    await kimlikBelirle(data.session);
+    return;
+  }
+  girisEkraniniKur();
+  $('#giris').style.display = 'block';
+}
+
+function girisEkraniniKur() {
+  const b = $('#g_baslik'), alt = $('#g_alt'), kutu = $('#g_davet'), btn = $('#g_btn');
+  if (DAVET && DAVET_FIRMA) {
+    b.textContent = 'Hesap oluşturun';
+    alt.textContent = 'Sanifoam PPAP portalına ilk kez giriyorsunuz.';
+    kutu.style.display = 'block';
+    kutu.innerHTML = '<b>' + kacir(DAVET_FIRMA) + '</b> adına davet edildiniz. '
+      + 'Kendi e-postanızı yazın ve <b>şifrenizi siz belirleyin</b> — '
+      + 'bu bilgileri kimseyle paylaşmayın.';
+    $('#g_sifre2kutu').style.display = 'block';
+    btn.textContent = 'Hesabı oluştur ve gir';
+    $('#g_alt2').innerHTML = 'Zaten hesabınız varsa <a href="#" id="g_gecis">giriş yapın</a>.';
+    setTimeout(() => {
+      const g = document.getElementById('g_gecis');
+      if (g) g.onclick = e => {
+        e.preventDefault();
+        $('#g_sifre2kutu').style.display = 'none';
+        btn.textContent = 'Giriş yap'; btn.dataset.mod = 'giris';
+        $('#g_alt2').textContent = '';
+      };
+    }, 0);
+    btn.dataset.mod = 'kayit';
+  } else if (DAVET && !DAVET_FIRMA) {
+    kutu.style.display = 'block';
+    kutu.className = 'uyari-kutu';
+    kutu.textContent = 'Bu davet bağlantısı geçersiz, süresi dolmuş ya da daha önce '
+      + 'kullanılmış. Sanifoam kalite bölümünden yeni bir bağlantı isteyin.';
+  }
+}
+
+async function davetiKullan() {
+  try {
+    const r = await sb.rpc('ppap_davet_kullan', { p_kod: DAVET });
+    if (r.error) throw new Error(r.error.message);
+    history.replaceState({}, '', location.pathname);
+    const { data } = await sb.auth.getSession();
+    await kimlikBelirle(data.session);
+    mesaj('✅ Hesabınız <b>' + kacir(r.data) + '</b> ile eşleştirildi.');
+  } catch (e) {
+    $('#giris').style.display = 'block';
+    $('#g_hata').style.display = 'block';
+    $('#g_hata').textContent = 'Davet kullanılamadı: ' + e.message;
+  }
 }
 async function kimlikBelirle(oturum) {
   const eposta = oturum.user.email || '';
@@ -166,16 +232,42 @@ async function kimlikBelirle(oturum) {
 }
 $('#g_btn').onclick = async () => {
   const e = $('#g_mail').value.trim(), p = $('#g_sifre').value;
+  const kayit = $('#g_btn').dataset.mod === 'kayit';
+  $('#g_hata').style.display = 'none';
   if (!e || !p) return;
+  if (kayit) {
+    if (p.length < 8) {
+      $('#g_hata').style.display = 'block';
+      $('#g_hata').textContent = 'Şifre en az 8 karakter olmalı.';
+      return;
+    }
+    if (p !== $('#g_sifre2').value) {
+      $('#g_hata').style.display = 'block';
+      $('#g_hata').textContent = 'İki şifre aynı değil.';
+      return;
+    }
+  }
   $('#g_btn').disabled = true;
-  const { data, error } = await sb.auth.signInWithPassword({ email: e, password: p });
+  const r = kayit ? await sb.auth.signUp({ email: e, password: p })
+                  : await sb.auth.signInWithPassword({ email: e, password: p });
   $('#g_btn').disabled = false;
-  if (error) {
+  if (r.error) {
     $('#g_hata').style.display = 'block';
-    $('#g_hata').textContent = 'Giriş yapılamadı: ' + error.message;
+    $('#g_hata').textContent = (kayit ? 'Hesap oluşturulamadı: ' : 'Giriş yapılamadı: ')
+      + r.error.message;
     return;
   }
-  await kimlikBelirle(data.session);
+  if (!r.data.session) {
+    // E-posta dogrulama acik: once postadaki baglantiya basacak.
+    $('#giris').style.display = 'block';
+    $('#g_hata').style.display = 'block';
+    $('#g_hata').innerHTML = '📧 <b>' + kacir(e) + '</b> adresine bir doğrulama postası '
+      + 'gönderildi. Postadaki bağlantıya bastıktan sonra <b>bu sayfaya geri dönüp</b> '
+      + 'aynı bilgilerle giriş yapın.';
+    return;
+  }
+  if (DAVET && DAVET_FIRMA) { await davetiKullan(); return; }
+  await kimlikBelirle(r.data.session);
 };
 $('#g_sifre').addEventListener('keydown', e => { if (e.key === 'Enter') $('#g_btn').click(); });
 async function cikis() { await sb.auth.signOut(); location.reload(); }

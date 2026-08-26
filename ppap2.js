@@ -185,15 +185,17 @@ async function kullaniciPenceresi() {
   const p = document.createElement('div');
   p.className = 'perde';
   p.innerHTML = '<div class="pencere"><h2>👤 Tedarikçi kullanıcıları</h2>'
-    + '<div class="uyari-kutu">Hesabı <b>siz</b> açarsınız: Supabase → Authentication → '
-    + '<b>Add user</b> (e-posta + şifre). Şifreyi tedarikçiye siz iletirsiniz. '
-    + 'Buradaki kayıt yalnızca o hesabı bir tedarikçiye bağlar.</div>'
+    + '<div class="bilgi-kutu"><b>Kolay yol:</b> tedarikçiyi seçin, <b>🔗 Davet linki '
+    + 'oluştur</b>a basın ve çıkan bağlantıyı gönderin. Tedarikçi kendi e-postasını ve '
+    + '<b>kendi şifresini</b> belirleyip girer; siz hesap açmazsınız, şifre taşımazsınız. '
+    + 'Bağlantı tek kullanımlıktır ve 30 gün geçerlidir.</div>'
     + '<label>E-posta</label><input id="k_mail" type="email" placeholder="kalite@tedarikci.com">'
     + '<label>Tedarikçi</label>'
     + (ted.length ? '<select id="k_ted">' + ted.map(x => '<option>' + kacir(x.ad) + '</option>').join('') + '</select>'
                   : '<input id="k_ted">')
     + '<label>Kişi adı (isteğe bağlı)</label><input id="k_ad">'
-    + '<div class="dugmeler"><button class="dugme" id="k_ekle">Bağla</button></div>'
+    + '<div class="dugmeler"><button class="dugme" id="k_davet">🔗 Davet linki oluştur</button>'
+    + '<button class="dugme duz" id="k_ekle">Var olan hesabı bağla</button></div>'
     + (liste.length
         ? '<table style="margin-top:14px"><thead><tr><th>E-posta</th><th>Tedarikçi</th><th></th></tr></thead><tbody>'
           + liste.map(x => '<tr><td>' + kacir(x.eposta) + (x.aktif ? '' : ' <span class="soluk">(pasif)</span>')
@@ -206,6 +208,19 @@ async function kullaniciPenceresi() {
   const kapat = () => p.remove();
   p.addEventListener('click', e => { if (e.target === p) kapat(); });
   p.querySelector('#k_kapat').onclick = kapat;
+  p.querySelector('#k_davet').onclick = async () => {
+    const t = p.querySelector('#k_ted').value.trim();
+    if (!t) { mesaj('Önce tedarikçi seçin.', 'hata'); return; }
+    const kod = [...crypto.getRandomValues(new Uint8Array(9))]
+      .map(x => 'abcdefghijkmnpqrstuvwxyz23456789'[x % 32]).join('');
+    const r = await sb.from('ppap_davet').insert({
+      kod: kod, tedarikci: t, ad: p.querySelector('#k_ad').value.trim(),
+      olusturan: BEN.eposta });
+    if (r.error) { mesaj('Davet oluşturulamadı: ' + r.error.message, 'hata'); return; }
+    kapat();
+    davetPenceresi(t, location.href.split('?')[0].split('#')[0] + '?davet=' + kod,
+                   p.querySelector('#k_mail').value.trim());
+  };
   p.querySelector('#k_ekle').onclick = async () => {
     const mail = p.querySelector('#k_mail').value.trim().toLowerCase();
     const t = p.querySelector('#k_ted').value.trim();
@@ -216,6 +231,45 @@ async function kullaniciPenceresi() {
     kapat(); mesaj('✅ ' + mail + ' → ' + t); kullaniciPenceresi();
   };
 }
+// Davet linki penceresi: kopyala + mail taslagi (uygulama mail GONDERMEZ).
+function davetPenceresi(tedarikci, link, mail) {
+  const p = document.createElement('div');
+  p.className = 'perde';
+  p.innerHTML = '<div class="pencere"><h2>🔗 Davet linki hazır</h2>'
+    + '<div class="soluk">' + kacir(tedarikci) + ' — bağlantı tek kullanımlık, 30 gün geçerli.</div>'
+    + '<div class="bilgi-kutu" style="word-break:break-all;font-family:monospace;font-size:12px">'
+    + kacir(link) + '</div>'
+    + '<div class="soluk">Tedarikçi bu bağlantıyı açar, kendi e-postasını ve şifresini '
+    + 'belirler; hesabı otomatik olarak <b>' + kacir(tedarikci) + '</b> ile eşleşir.</div>'
+    + '<div class="dugmeler"><button class="dugme" id="d_kopya">📋 Kopyala</button>'
+    + '<button class="dugme duz" id="d_mail">📧 Mail taslağı</button>'
+    + '<button class="dugme duz sag" id="d_kapat">Kapat</button></div></div>';
+  document.body.appendChild(p);
+  const kapat = () => p.remove();
+  p.addEventListener('click', e => { if (e.target === p) kapat(); });
+  p.querySelector('#d_kapat').onclick = kapat;
+  p.querySelector('#d_kopya').onclick = async () => {
+    try { await navigator.clipboard.writeText(link); mesaj('📋 Kopyalandı.'); }
+    catch (e) { mesaj('Kopyalanamadı — bağlantıyı elle seçip kopyalayın.', 'hata'); }
+  };
+  p.querySelector('#d_mail').onclick = () => {
+    const konu = 'Sanifoam PPAP Portalı — ' + tedarikci;
+    const govde = 'Sayın Yetkili,\n\n'
+      + tedarikci + ' için PPAP (VDA 2) belgelerini ileteceğiniz portal hazır.\n\n'
+      + 'Aşağıdaki bağlantıyı açın, e-postanızı yazıp kendi şifrenizi belirleyin:\n'
+      + link + '\n\n'
+      + 'Sonrasında sizden istenen belgeler madde madde listelenir; her maddede boş '
+      + 'formatı indirip doldurabilir, dosyayı sürükleyip yükleyebilirsiniz.\n\n'
+      + 'Bağlantı tek kullanımlıktır ve 30 gün geçerlidir.\n\n'
+      + 'Saygılarımızla,\nSanifoam Kalite';
+    const a = document.createElement('a');
+    a.href = 'mailto:' + (mail || '') + '?subject=' + encodeURIComponent(konu)
+      + '&body=' + encodeURIComponent(govde);
+    a.style.display = 'none'; document.body.appendChild(a); a.click();
+    setTimeout(() => a.remove(), 1000);
+  };
+}
+
 async function kullaniciSil(eposta) {
   if (!confirm(eposta + ' bağlantısı kaldırılsın mı?\n\nHesabın kendisi Supabase\'de kalır.')) return;
   const r = await sb.from('ppap_kullanici').delete().eq('eposta', eposta);
