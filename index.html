@@ -452,6 +452,38 @@ function dosyaOku(file) {
     fr.onloadend = () => r(fr.result); fr.readAsDataURL(file); });
 }
 
+// Madde adina tiklaninca: ne isteniyor + ornek belgeler.
+function maddeBilgi(no) {
+  const m = (VDA2.maddeler || []).find(x => x.no === no);
+  if (!m) return;
+  const pp = m.ppap || '';
+  const kod = pp ? (((VDA2.tablo42 || {})[pp] || {})[AKTIF_SEVIYE || '3'] || '') : '';
+  const KOD_ACIK = { S: 'Bu seviyede müşteriye GÖNDERİLİR.',
+                     R: 'Bu seviyede tedarikçide TUTULUR; istenirse gösterilir.',
+                     '*': 'Bu seviyede tedarikçide tutulur; müşteri isterse gönderilir.' };
+  const p = document.createElement('div');
+  p.className = 'perde';
+  p.innerHTML = '<div class="pencere" style="max-width:560px">'
+    + '<h3>' + kacir(m.no) + ' — ' + kacir(m.ad) + '</h3>'
+    + (pp ? '<div class="soluk" style="margin:2px 0 10px">'
+        + kacir((VDA2.ppap_ad || {})[pp] || ('PPAP ' + pp))
+        + (kod ? ' · <b>' + kacir(kod) + '</b> — ' + kacir(KOD_ACIK[kod] || '') : '')
+        + '</div>' : '')
+    + '<div class="bilgi-kutu"><b>Ne isteniyor?</b><div style="margin-top:4px">'
+    + kacir(m.ne || 'Bu madde için müşteriyle kararlaştırılan kanıt sunulur.') + '</div></div>'
+    + ((m.ornek || []).length
+        ? '<div style="font-size:13px"><b>Örnek belgeler</b><ul style="margin:6px 0 0;padding-left:20px">'
+          + m.ornek.map(x => '<li style="margin:3px 0">' + kacir(x) + '</li>').join('') + '</ul></div>'
+        : '')
+    + (SABLON[m.no] ? '<div class="bilgi-kutu" style="margin-top:10px">📄 Bu madde için '
+        + '<b>boş format</b> var — satırdaki “Boş formatı indir” bağlantısını kullanın.</div>' : '')
+    + '<div class="dugmeler"><button class="dugme sag" id="mb_kapat">Kapat</button></div></div>';
+  document.body.appendChild(p);
+  const kapat = () => p.remove();
+  p.addEventListener('click', e => { if (e.target === p) kapat(); });
+  p.querySelector('#mb_kapat').onclick = kapat;
+}
+
 // ── Ortak: madde tablosu ─────────────────────────────────────────────────
 // Bos format: kullanicinin KENDI formu Drive'da duruyor, tedarikci
 // buradan indirip doldurur ve ayni maddeye geri yukler.
@@ -518,7 +550,9 @@ function maddeSatirlari(maddeler, ic, projeId) {
             ? '<span title="' + kacir(ppapBaslik(m.no, pp)) + '">' + kacir(pp) + '</span>'
               + tablo42Kod(pp)
             : '<span class="soluk">—</span>') + '</td>'
-        + '<td>' + kacir(m.ad)
+        + '<td><a href="#" style="color:inherit;text-decoration:underline dotted" '
+        + 'onclick="maddeBilgi(' + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false">'
+        + kacir(m.ad) + '</a>'
         + (met(m.yorum) ? '<div class="soluk" style="color:var(--sil)">💬 ' + kacir(m.yorum) + '</div>' : '')
         + (met(m.ted_yorum) ? '<div class="soluk">🗨 ' + kacir(m.ted_yorum) + '</div>' : '')
         + (m.dosyalar || []).map(f => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
