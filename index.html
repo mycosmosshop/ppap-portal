@@ -154,10 +154,22 @@ async function basla() {
       DAVET_FIRMA = (r && r.data) || '';
     } catch (e) {}
   }
-  const { data } = await sb.auth.getSession();
-  if (data.session) {
+  // Oturum SUNUCUYA sorulur: localStorage'da eski/suresi dolmus bir oturum
+  // kalmis olabilir; onunla davet kullanilinca sunucu kimligi gormuyor ve
+  // "once giris yapmalisiniz" gibi yaniltici bir hata cikiyordu.
+  let oturum = null;
+  try {
+    const { data: o } = await sb.auth.getSession();
+    if (o.session) {
+      const { data: u, error: ue } = await sb.auth.getUser();
+      if (!ue && u && u.user) oturum = o.session;
+      else await sb.auth.signOut();     // gecersiz oturumu temizle
+    }
+  } catch (e) { try { await sb.auth.signOut(); } catch (e2) {} }
+
+  if (oturum) {
     if (DAVET && DAVET_FIRMA) { await davetiKullan(); return; }
-    await kimlikBelirle(data.session);
+    await kimlikBelirle(oturum);
     return;
   }
   girisEkraniniKur();
@@ -195,17 +207,38 @@ function girisEkraniniKur() {
 }
 
 async function davetiKullan() {
-  try {
+  // Oturum daha yeni kuruldu; istemcinin kimligi iliştirmesi bir an
+  // gecikebiliyor — kimlik gorulmezse kisa araliklarla iki kez daha dener.
+  for (let deneme = 0; deneme < 3; deneme++) {
+    const { data: o } = await sb.auth.getSession();
+    if (!o.session) {
+      girisEkraniniKur();
+      $('#giris').style.display = 'block';
+      $('#g_hata').style.display = 'block';
+      $('#g_hata').innerHTML = '📧 Hesabınız oluşturuldu ama <b>e-posta doğrulaması</b> '
+        + 'bekleniyor. Posta kutunuzdaki bağlantıya bastıktan sonra <b>bu sayfaya geri '
+        + 'dönüp</b> aynı bilgilerle giriş yapın — davet o zaman kullanılır.';
+      return;
+    }
     const r = await sb.rpc('ppap_davet_kullan', { p_kod: DAVET });
-    if (r.error) throw new Error(r.error.message);
-    history.replaceState({}, '', location.pathname);
-    const { data } = await sb.auth.getSession();
-    await kimlikBelirle(data.session);
-    mesaj('✅ Hesabınız <b>' + kacir(r.data) + '</b> ile eşleştirildi.');
-  } catch (e) {
-    $('#giris').style.display = 'block';
-    $('#g_hata').style.display = 'block';
-    $('#g_hata').textContent = 'Davet kullanılamadı: ' + e.message;
+    if (!r.error) {
+      history.replaceState({}, '', location.pathname);
+      await kimlikBelirle(o.session);
+      mesaj('✅ Hesabınız <b>' + kacir(r.data) + '</b> ile eşleştirildi.');
+      return;
+    }
+    const kimlikSorunu = /giri[sş]|jwt|claim/i.test(r.error.message || '');
+    if (!kimlikSorunu || deneme === 2) {
+      girisEkraniniKur();
+      $('#giris').style.display = 'block';
+      $('#g_hata').style.display = 'block';
+      $('#g_hata').innerHTML = kimlikSorunu
+        ? 'Oturum sunucuya ulaşmadı. Sayfayı yenileyip (Ctrl+F5) aynı bilgilerle '
+          + '<b>giriş yapın</b>; davet bağlantısı geçerliliğini koruyor.'
+        : 'Davet kullanılamadı: ' + kacir(r.error.message);
+      return;
+    }
+    await new Promise(x => setTimeout(x, 900));
   }
 }
 async function kimlikBelirle(oturum) {
