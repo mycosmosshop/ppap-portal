@@ -10,6 +10,16 @@ const SABLON = {
   "dosya": "VDA_2_2020_Anlagen_Attachments_2-6_7 MAN.xlsx",
   "anahtar": "PPAPSABLON_0.2_VDA_2_2020_Anlagen_Attachments_2-6_7_MAN.xlsx.json"
  },
+ "2.1": {
+  "ad": "PL74 Proses Akış Diyagramı",
+  "dosya": "PL74 Proses Akış Diyagramı (BOS FORMAT).xlsx",
+  "anahtar": "PPAPSABLON_2.1_PL74_Proses_Ak_Diyagram_(BOS_FORMAT).xlsx.json"
+ },
+ "2.2": {
+  "ad": "Process FMEA — AIAG-VDA formatı (VBA korunmuş)",
+  "dosya": "PFMEA_AIAGVDA_EN (BOS FORMAT).xlsm",
+  "anahtar": "PPAPSABLON_2.2_PFMEA_AIAGVDA_EN_(BOS_FORMAT).xlsm.json"
+ },
  "3.1.3": {
   "ad": "Ölçü Kontrol Raporu",
   "dosya": "Ölçü Kontrol Raporu Mercedes (BOS FORMAT).xls",
