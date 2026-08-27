@@ -282,6 +282,7 @@ async function projeAc(id) {
     + Object.keys(DURUM_AD).map(k => '<option value="' + k + '"' + (k === p.durum ? ' selected' : '')
         + '>' + DURUM_AD[k] + '</option>').join('') + '</select>'
     + '<button class="dugme duz" onclick="seviyeUygula(' + A + ')">⚙ Seviye uygula</button>'
+    + '<button class="dugme duz" style="color:var(--sil)" onclick="projeTemizle(' + A + ')">🧹 Temizle</button>'
     + '</div></div>'
     + '<div class="soluk">' + kacir(p.parca_ad) + (met(p.musteri) ? ' · Müşteri: ' + kacir(p.musteri) : '')
     + ' · Seviye ' + kacir(p.seviye) + '</div>'
@@ -330,6 +331,39 @@ async function maddeBayrak(maddeId, alan, deger) {
   const m = MADDELER.find(x => x.id === maddeId);
   if (m) Object.assign(m, y);
   if (ACIK) projeAc(ACIK);
+}
+
+// Kalite: TEK maddenin yazisma/verisini temizler (dosyalar, notlar,
+// kararlar). Drive'daki icerik dosyasina dokunulmaz.
+async function maddeTemizle(maddeId) {
+  const m = MADDELER.find(x => x.id === maddeId); if (!m) return;
+  if (!confirm(m.no + ' ' + m.ad + String.fromCharCode(10, 10)
+      + 'Bu maddenin dosyalari, notlari ve karari TEMIZLENSIN mi?'
+      + String.fromCharCode(10) + 'Geri alinamaz.')) return;
+  const y = { dosyalar: [], yorum: null, ted_yorum: null, durum: 'bekliyor' };
+  const r = await sb.from('ppap_madde').update(y).eq('id', maddeId);
+  if (r.error) { mesaj('Temizlenemedi: ' + r.error.message, 'hata'); return; }
+  Object.assign(m, y);
+  mesaj('🧹 ' + m.no + ' temizlendi.');
+  projeAc(ACIK);
+}
+
+// Kalite: PROJEDEKI TUM yazisma/veriyi temizler — cift onay.
+async function projeTemizle(id) {
+  const p = PROJELER.find(x => x.id === id); if (!p) return;
+  if (!confirm(p.tedarikci + ' — ' + p.parca_no + String.fromCharCode(10, 10)
+      + 'TUM maddelerdeki dosyalar, tedarikci notlari ve kabul/red kararlari '
+      + 'TEMIZLENECEK. Kapsam isaretleri (gerekli/gonderilecek) korunur.'
+      + String.fromCharCode(10) + 'Devam edilsin mi?')) return;
+  if (!confirm('Son onay: bu islem GERI ALINAMAZ. Temizlensin mi?')) return;
+  const y = { dosyalar: [], yorum: null, ted_yorum: null, durum: 'bekliyor' };
+  const r = await sb.from('ppap_madde').update(y).eq('proje_id', id);
+  if (r.error) { mesaj('Temizlenemedi: ' + r.error.message, 'hata'); return; }
+  await sb.from('ppap_proje').update({ durum: 'hazirlik' }).eq('id', id);
+  p.durum = 'hazirlik';
+  MADDELER.forEach(m => Object.assign(m, y));
+  mesaj('🧹 Proje temizlendi — tum maddeler Bekliyor durumuna dondu.');
+  projeAc(id);
 }
 
 async function maddeKarar(maddeId, karar) {

@@ -20,6 +20,11 @@ const SABLON = {
   "dosya": "PFMEA_AIAGVDA_EN (BOS FORMAT).xlsm",
   "anahtar": "PPAPSABLON_2.2_PFMEA_AIAGVDA_EN_(BOS_FORMAT).xlsm.json"
  },
+ "2.3": {
+  "ad": "Kontrol Planı — AIAG CP 2024 düzeni (Error-Proofing dahil)",
+  "dosya": "CP Kontrol Plani AIAG 2024 (BOS FORMAT).xlsx",
+  "anahtar": "PPAPSABLON_2.3_CP_Kontrol_Plani_AIAG_2024_(BOS_FORMAT).xlsx.json"
+ },
  "3.1.3": {
   "ad": "Ölçü Kontrol Raporu",
   "dosya": "Ölçü Kontrol Raporu Mercedes (BOS FORMAT).xls",
