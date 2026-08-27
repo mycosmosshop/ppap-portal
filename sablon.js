@@ -41,9 +41,9 @@ const SABLON = {
   "anahtar": "PPAPSABLON_5.4_FR86_MSA_Gage_RR_+_Attribute_(BOS_FORMAT).xlsx.json"
  },
  "5.6": {
-  "ad": "Ambalaj Standardı Formu — paketleme talimatı (FR228)",
-  "dosya": "FR228 Ambalaj Standardi Formu (BOS FORMAT).docx",
-  "anahtar": "PPAPSABLON_5.6_FR228_Ambalaj_Standardi_Formu_(BOS_FORMAT).docx.json"
+  "ad": "Ambalaj Talimatı / Packaging Instruction (TR-EN)",
+  "dosya": "Ambalaj Talimati - Packaging Instruction (BOS FORMAT).xlsx",
+  "anahtar": "PPAPSABLON_5.6_Ambalaj_Talimati_-_Packaging_Instruction_(BOS_FORMAT).xlsx.json"
  },
  "5.5": {
   "ad": "Parça Geçmişi",
