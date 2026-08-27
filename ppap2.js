@@ -208,12 +208,14 @@ async function yeniProje() {
     + '<div class="soluk">Tedarikçi onaylı listeden seçilir; seviye madde matrisini ön işaretler, '
     + 'sonra madde bazında değiştirebilirsiniz.</div>'
     + '<label>Tedarikçi</label>'
-    + (ted.length
-        ? '<select id="p_ted"><option value="">— tedarikçi seçin —</option>'
-          + ted.map(x => '<option' + (x.ad === onSecili ? ' selected' : '')
-            + '>' + kacir(x.ad) + '</option>').join('') + '</select>'
-        : '<input id="p_ted" value="' + kacir(onSecili).replace(/"/g, '&quot;') + '" placeholder="Tedarikçi adı"><div class="soluk">Onaylı liste okunamadı — '
-          + 'adı elle yazabilirsiniz.</div>')
+    // datalist: yazdikca liste suzulur, listede olmayan yeni tedarikci de
+    // dogrudan yazilabilir (kullanicinin istegi).
+    + '<input id="p_ted" list="p_tedList" value="' + kacir(onSecili)
+    + '" placeholder="yazarak arayın — listede yoksa adını yazın" autocomplete="off">'
+    + '<datalist id="p_tedList">'
+    + ted.map(x => '<option value="' + kacir(x.ad) + '">').join('') + '</datalist>'
+    + '<div class="soluk" style="margin-top:3px">Onaylı listeden arayın; listede olmayan '
+    + 'yeni bir tedarikçiyi doğrudan yazabilirsiniz.</div>'
     + '<div class="satirlar">'
     + '<div><label>Parça no</label><input id="p_no" placeholder="700.0.454"></div>'
     + '<div><label>Parça adı</label><input id="p_ad"></div>'
@@ -293,8 +295,31 @@ async function projeAc(id) {
     + ((VDA2.seviye[p.seviye] || {}).not ? '<div style="margin-top:4px">'
         + kacir(VDA2.seviye[p.seviye].not) + '</div>' : '') + '</div>'
     + '<table><thead><tr><th>VDA no</th><th title="AIAG PPAP element numarası">PPAP</th>'
-    + '<th>Madde</th><th>Kapsam</th><th>Durum</th><th></th></tr></thead>'
+    + '<th>Madde</th><th>Kapsam'
+    + '<div style="font-weight:400;font-size:11px;white-space:nowrap">'
+    + 'gerekli: <a href="#" onclick="topluKapsam(\'gerekli\',true);return false">tümü</a>'
+    + ' / <a href="#" onclick="topluKapsam(\'gerekli\',false);return false">temizle</a><br>'
+    + 'gönderilecek: <a href="#" onclick="topluKapsam(\'gonderim\',true);return false">tümü</a>'
+    + ' / <a href="#" onclick="topluKapsam(\'gonderim\',false);return false">temizle</a></div>'
+    + '</th><th>Durum</th><th></th></tr></thead>'
     + '<tbody>' + maddeSatirlari(MADDELER, true, id) + '</tbody></table></div>';
+}
+
+// Kapsam basligindaki toplu islemler. Kural korunur: gonderilecek isaretli
+// olan gereklidir; gerekli kaldirilinca gonderim de kalkar. Tek istek.
+async function topluKapsam(alan, deger) {
+  const ad = alan === 'gerekli' ? 'gerekli' : 'gönderilecek';
+  if (!confirm('Tüm maddelerde "' + ad + '" ' + (deger ? 'işaretlensin' : 'temizlensin') + ' mi?\n\n'
+      + 'Yüklenen dosyalar ve kararlar değişmez; tek tek geri düzeltebilirsiniz.')) return;
+  const y = {};
+  if (alan === 'gerekli') { y.gerekli = deger; if (!deger) y.gonderim = false; }
+  else { y.gonderim = deger; if (deger) y.gerekli = true; }
+  const ids = MADDELER.map(m => m.id);
+  const r = await sb.from('ppap_madde').update(y).in('id', ids);
+  if (r.error) { mesaj('Kaydedilemedi: ' + r.error.message, 'hata'); return; }
+  MADDELER.forEach(m => Object.assign(m, y));
+  mesaj('✔ ' + ids.length + ' maddede "' + ad + '" ' + (deger ? 'işaretlendi' : 'temizlendi') + '.');
+  projeAc(ACIK);
 }
 
 async function maddeBayrak(maddeId, alan, deger) {
