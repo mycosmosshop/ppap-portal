@@ -35,6 +35,11 @@ const SABLON = {
   "dosya": "Run-at-Rate (BOS FORMAT).xlsm",
   "anahtar": "PPAPSABLON_4.5_Run-at-Rate_(BOS_FORMAT).xlsm.json"
  },
+ "4.1": {
+  "ad": "FR24 Proses ve Makine Yeterliliği — Cpk/Ppk çalışması (canlı grafikli)",
+  "dosya": "FR24 Proses Yeterliligi (BOS FORMAT).xlsx",
+  "anahtar": "PPAPSABLON_4.1_FR24_Proses_Yeterliligi_(BOS_FORMAT).xlsx.json"
+ },
  "5.4": {
   "ad": "FR86 MSA — 3 sayısal Gage R&R + 3 attribute çalışma (formüllü)",
   "dosya": "FR86 MSA Gage RR + Attribute (BOS FORMAT).xlsx",
