@@ -282,7 +282,9 @@ async function projeAc(id) {
     + Object.keys(DURUM_AD).map(k => '<option value="' + k + '"' + (k === p.durum ? ' selected' : '')
         + '>' + DURUM_AD[k] + '</option>').join('') + '</select>'
     + '<button class="dugme duz" onclick="seviyeUygula(' + A + ')">⚙ Seviye uygula</button>'
+    + '<button class="dugme duz" onclick="ppapIndir(' + A + ')">⤓ İndir</button>'
     + '<button class="dugme duz" style="color:var(--sil)" onclick="projeTemizle(' + A + ')">🧹 Temizle</button>'
+    + '<button class="dugme duz" style="color:var(--sil)" onclick="projeSil(' + A + ')">🗑 Sil</button>'
     + '</div></div>'
     + '<div class="soluk">' + kacir(p.parca_ad) + (met(p.musteri) ? ' · Müşteri: ' + kacir(p.musteri) : '')
     + ' · Seviye ' + kacir(p.seviye) + '</div>'
@@ -364,6 +366,107 @@ async function projeTemizle(id) {
   MADDELER.forEach(m => Object.assign(m, y));
   mesaj('🧹 Proje temizlendi — tum maddeler Bekliyor durumuna dondu.');
   projeAc(id);
+}
+
+// ── ZIP (stored) — kutuphane yok ────────────────────────────────────────
+const _CRC = (() => { const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) { let c = i;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = _CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0; }
+
+function zipYap(dosyalar) {
+  const enc = new TextEncoder(), parca = [], merkez = [];
+  let ofs = 0, mBoy = 0;
+  dosyalar.forEach(f => {
+    const ad = enc.encode(f.ad), n = f.veri.length, crc = crc32(f.veri);
+    const y = new DataView(new ArrayBuffer(30));
+    y.setUint32(0, 0x04034b50, true); y.setUint16(4, 20, true);
+    y.setUint16(6, 0x0800, true);                 // UTF-8 ad
+    y.setUint32(14, crc, true); y.setUint32(18, n, true); y.setUint32(22, n, true);
+    y.setUint16(26, ad.length, true);
+    parca.push(new Uint8Array(y.buffer), ad, f.veri);
+    const m = new DataView(new ArrayBuffer(46));
+    m.setUint32(0, 0x02014b50, true); m.setUint16(4, 20, true); m.setUint16(6, 20, true);
+    m.setUint16(8, 0x0800, true);
+    m.setUint32(16, crc, true); m.setUint32(20, n, true); m.setUint32(24, n, true);
+    m.setUint16(28, ad.length, true); m.setUint32(42, ofs, true);
+    merkez.push(new Uint8Array(m.buffer), ad);
+    ofs += 30 + ad.length + n; mBoy += 46 + ad.length;
+  });
+  const son = new DataView(new ArrayBuffer(22));
+  son.setUint32(0, 0x06054b50, true);
+  son.setUint16(8, dosyalar.length, true); son.setUint16(10, dosyalar.length, true);
+  son.setUint32(12, mBoy, true); son.setUint32(16, ofs, true);
+  return new Blob(parca.concat(merkez, [new Uint8Array(son.buffer)]),
+                  { type: 'application/zip' });
+}
+
+function indirBlob(blob, ad) {
+  const u = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = u; a.download = ad; document.body.appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 4000);
+}
+
+// Istenen dokumanlarin listesi + yuklenen dosyalar tek ZIP'te.
+async function ppapIndir(id) {
+  const p = PROJELER.find(x => x.id === id); if (!p) return;
+  const kapsam = MADDELER.filter(m => m.gerekli || m.gonderim);
+  const enc = new TextEncoder();
+  const q = t => '"' + String(t == null ? '' : t).replace(/"/g, '""') + '"';
+  const satir = [['VDA no', 'PPAP', 'Madde', 'Gerekli', 'Gönderilecek', 'Durum',
+                  'Yüklenen dosyalar', 'Kalite notu', 'Tedarikçi notu'].map(q).join(';')];
+  const DURUM = { bekliyor: 'Bekliyor', yuklendi: 'Yüklendi', kabul: 'Kabul', red: 'Red' };
+  const dosyalar = [];
+  mesaj('📦 Hazırlanıyor… (' + kapsam.length + ' madde)');
+  for (const m of kapsam) {
+    const adlar = (m.dosyalar || []).map(f => f.ad);
+    satir.push([m.no, m.ppap || '', m.ad, m.gerekli ? 'X' : '', m.gonderim ? 'X' : '',
+                DURUM[m.durum] || m.durum, adlar.join(' | '),
+                m.yorum || '', m.ted_yorum || ''].map(q).join(';'));
+    for (const f of (m.dosyalar || [])) {
+      try {
+        const veri = JSON.parse(await driveOku(f.anahtar));
+        const buf = new Uint8Array(await (await fetch(veri.veri)).arrayBuffer());
+        dosyalar.push({ ad: guvenliAd(m.no) + '/' + guvenliAd(f.ad), veri: buf });
+      } catch (e) { satir.push([m.no, '', 'İNDİRİLEMEDİ: ' + f.ad, '', '', '', '', '', '']
+                                 .map(q).join(';')); }
+    }
+  }
+  // Excel'in TR ayrimlayiciyi ve Turkce karakterleri dogru okumasi icin
+  // BOM + noktali virgul.
+  dosyalar.unshift({ ad: 'PPAP_liste.csv',
+                     veri: enc.encode('\ufeff' + satir.join('\r\n')) });
+  const ad = guvenliAd(p.tedarikci + '_' + p.parca_no) + '_PPAP.zip';
+  indirBlob(zipYap(dosyalar), ad);
+  mesaj('⤓ ' + ad + ' indirildi — ' + (dosyalar.length - 1) + ' dosya + liste.');
+}
+function guvenliAd(t) {
+  return String(t || '').replace(/[\\/:*?"<>|]/g, '-').trim().slice(0, 80);
+}
+
+// Projeyi komple siler (maddeler + proje kaydi). Drive'daki icerik
+// dosyalari yerinde kalir; kunye gidince portalden erisilmez.
+async function projeSil(id) {
+  const p = PROJELER.find(x => x.id === id); if (!p) return;
+  if (!confirm(p.tedarikci + ' — ' + p.parca_no + String.fromCharCode(10, 10)
+      + 'BU PROJE KOMPLE SİLİNECEK: tüm maddeler, dosya künyeleri, notlar ve kararlar.'
+      + String.fromCharCode(10) + 'Geri alınamaz.')) return;
+  if (!confirm('Son onay — silinsin mi?' + String.fromCharCode(10)
+      + 'İsterseniz önce ⤓ İndir ile yedek alın.')) return;
+  const rm = await sb.from('ppap_madde').delete().eq('proje_id', id).select('id');
+  if (rm.error) { mesaj('Silinemedi: ' + rm.error.message, 'hata'); return; }
+  const rp = await sb.from('ppap_proje').delete().eq('id', id).select('id');
+  if (rp.error) { mesaj('Silinemedi: ' + rp.error.message, 'hata'); return; }
+  if (!rp.data || !rp.data.length) {
+    mesaj('Proje silinemedi — silme yetkiniz yok (RLS kuralı).', 'hata'); return;
+  }
+  PROJELER = PROJELER.filter(x => x.id !== id);
+  ACIK = null;
+  mesaj('🗑 Proje silindi (' + rm.data.length + ' madde).');
+  projeListesi();
 }
 
 async function maddeKarar(maddeId, karar) {
