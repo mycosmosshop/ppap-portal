@@ -404,6 +404,78 @@ function zipYap(dosyalar) {
                   { type: 'application/zip' });
 }
 
+// Kutuphanesiz xlsx: hucreler inlineStr — Excel '1.1'i tarihe cevirmez.
+function xlsxYap(basliklar, satirlar, genislikler) {
+  const x = t => String(t == null ? '' : t)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const kolonAd = i => { let s = '', v = i + 1;
+    while (v) { v--; s = String.fromCharCode(65 + (v % 26)) + s; v = Math.floor(v / 26); }
+    return s; };
+  const hucre = (r, i, t, stil) => '<c r="' + kolonAd(i) + r + '" t="inlineStr" s="' + stil
+    + '"><is><t xml:space="preserve">' + x(t) + '</t></is></c>';
+  const satirXml = (dizi, r, stil) => '<row r="' + r + '"'
+    + (stil === 1 ? ' ht="30" customHeight="1"' : '') + '>'
+    + dizi.map((t, i) => hucre(r, i, t, stil)).join('') + '</row>';
+  const cols = '<cols>' + genislikler.map((g, i) =>
+    '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + g + '" customWidth="1"/>'
+  ).join('') + '</cols>';
+  const sonKol = kolonAd(basliklar.length - 1), sonSat = satirlar.length + 1;
+  const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<sheetViews><sheetView workbookViewId="0" tabSelected="1">'
+    + '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
+    + '</sheetView></sheetViews>'
+    + cols + '<sheetData>' + satirXml(basliklar, 1, 1)
+    + satirlar.map((d, i) => satirXml(d, i + 2, 2)).join('') + '</sheetData>'
+    + '<autoFilter ref="A1:' + sonKol + sonSat + '"/></worksheet>';
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<fonts count="2"><font><sz val="10"/><name val="Calibri"/></font>'
+    + '<font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'
+    + '<fills count="3"><fill><patternFill patternType="none"/></fill>'
+    + '<fill><patternFill patternType="gray125"/></fill>'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FF1E3C72"/>'
+    + '<bgColor indexed="64"/></patternFill></fill></fills>'
+    + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="3">'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"'
+    + ' applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">'
+    + '<alignment vertical="top" wrapText="1"/></xf>'
+    + '</cellXfs></styleSheet>';
+  const enc = new TextEncoder();
+  return [
+    { ad: '[Content_Types].xml', veri: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-'
+      + 'officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-'
+      + 'officedocument.spreadsheetml.worksheet+xml"/>'
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-'
+      + 'officedocument.spreadsheetml.styles+xml"/></Types>') },
+    { ad: '_rels/.rels', veri: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+      + 'relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>') },
+    { ad: 'xl/workbook.xml', veri: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+      + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+      + '<sheets><sheet name="PPAP listesi" sheetId="1" r:id="rId1"/></sheets></workbook>') },
+    { ad: 'xl/_rels/workbook.xml.rels', veri: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+      + 'relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+      + 'relationships/styles" Target="styles.xml"/></Relationships>') },
+    { ad: 'xl/styles.xml', veri: enc.encode(styles) },
+    { ad: 'xl/worksheets/sheet1.xml', veri: enc.encode(sheet) },
+  ];
+}
+
 function indirBlob(blob, ad) {
   const u = URL.createObjectURL(blob), a = document.createElement('a');
   a.href = u; a.download = ad; document.body.appendChild(a); a.click();
@@ -414,31 +486,30 @@ function indirBlob(blob, ad) {
 async function ppapIndir(id) {
   const p = PROJELER.find(x => x.id === id); if (!p) return;
   const kapsam = MADDELER.filter(m => m.gerekli || m.gonderim);
-  const enc = new TextEncoder();
-  const q = t => '"' + String(t == null ? '' : t).replace(/"/g, '""') + '"';
-  const satir = [['VDA no', 'PPAP', 'Madde', 'Gerekli', 'Gönderilecek', 'Durum',
-                  'Yüklenen dosyalar', 'Kalite notu', 'Tedarikçi notu'].map(q).join(';')];
+  const BASLIK = ['VDA no', 'PPAP', 'Madde', 'Gerekli', 'Gönderilecek', 'Durum',
+                  'Yüklenen dosyalar', 'Kalite notu', 'Tedarikçi notu'];
+  const GENIS = [9, 7, 52, 8, 12, 11, 40, 30, 30];
+  const satir = [];
   const DURUM = { bekliyor: 'Bekliyor', yuklendi: 'Yüklendi', kabul: 'Kabul', red: 'Red' };
   const dosyalar = [];
   mesaj('📦 Hazırlanıyor… (' + kapsam.length + ' madde)');
   for (const m of kapsam) {
     const adlar = (m.dosyalar || []).map(f => f.ad);
-    satir.push([m.no, m.ppap || '', m.ad, m.gerekli ? 'X' : '', m.gonderim ? 'X' : '',
-                DURUM[m.durum] || m.durum, adlar.join(' | '),
-                m.yorum || '', m.ted_yorum || ''].map(q).join(';'));
+    // PPAP no maddede degil katalogda (panelde de PPAP_NO'dan okunuyor).
+    satir.push([m.no, PPAP_NO[m.no] || '', m.ad, m.gerekli ? 'X' : '', m.gonderim ? 'X' : '',
+                DURUM[m.durum] || m.durum, adlar.join('\n'),
+                m.yorum || '', m.ted_yorum || '']);
     for (const f of (m.dosyalar || [])) {
       try {
         const veri = JSON.parse(await driveOku(f.anahtar));
         const buf = new Uint8Array(await (await fetch(veri.veri)).arrayBuffer());
         dosyalar.push({ ad: guvenliAd(m.no) + '/' + guvenliAd(f.ad), veri: buf });
-      } catch (e) { satir.push([m.no, '', 'İNDİRİLEMEDİ: ' + f.ad, '', '', '', '', '', '']
-                                 .map(q).join(';')); }
+      } catch (e) { satir.push([m.no, '', 'İNDİRİLEMEDİ: ' + f.ad, '', '', '', '', '', '']); }
     }
   }
-  // Excel'in TR ayrimlayiciyi ve Turkce karakterleri dogru okumasi icin
-  // BOM + noktali virgul.
-  dosyalar.unshift({ ad: 'PPAP_liste.csv',
-                     veri: enc.encode('\ufeff' + satir.join('\r\n')) });
+  const liste = zipYap(xlsxYap(BASLIK, satir, GENIS));
+  dosyalar.unshift({ ad: 'PPAP_liste.xlsx',
+                     veri: new Uint8Array(await liste.arrayBuffer()) });
   const ad = guvenliAd(p.tedarikci + '_' + p.parca_no) + '_PPAP.zip';
   indirBlob(zipYap(dosyalar), ad);
   mesaj('⤓ ' + ad + ' indirildi — ' + (dosyalar.length - 1) + ' dosya + liste.');
