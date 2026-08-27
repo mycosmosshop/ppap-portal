@@ -4,8 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="katalog.js?v=15"></script>
-<script src="sablon.js?v=15"></script>
+<script src="katalog.js?v=16"></script>
+<script src="sablon.js?v=16"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -559,8 +559,19 @@ function maddeSatirlari(maddeler, ic, projeId) {
         + 'onclick="maddeBilgi(' + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false">'
         + kacir(m.ad) + '</a>'
         + (met(m.yorum) ? '<div class="soluk" style="color:var(--sil)">💬 ' + kacir(m.yorum) + '</div>' : '')
-        + (met(m.ted_yorum) ? '<div class="soluk">🗨 ' + kacir(m.ted_yorum) + '</div>' : '')
-        + (m.dosyalar || []).map((f, fi) => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
+        + (function () {
+            // 'REVİZYON: ...' parcalari dosyanin karsisina tasinir (asagida);
+            // burada yalniz diger notlar kalir.
+            const digerNot = met(m.ted_yorum).split(' · ')
+              .filter(x => x && x.indexOf('REVİZYON:') !== 0).join(' · ');
+            return digerNot ? '<div class="soluk">🗨 ' + kacir(digerNot) + '</div>' : '';
+          })()
+        + (function () {
+            const revler = met(m.ted_yorum).split(' · ')
+              .filter(x => x.indexOf('REVİZYON:') === 0);
+            var sonRev = revler.length ? revler[revler.length - 1] : '';
+            var sonIdx = (m.dosyalar || []).length - 1;
+            return (m.dosyalar || []).map((f, fi) => '<div class="dosya">📎 <a href="#" onclick="dosyaAc('
             + JSON.stringify(f).replace(/"/g, '&quot;') + ');return false">' + kacir(f.ad) + '</a>'
             + '<span class="soluk">' + kb(f.boyut || 0)
             + (met(f.tarih) ? ' · ' + kacir(f.tarih) : '')
@@ -576,7 +587,14 @@ function maddeSatirlari(maddeler, ic, projeId) {
                       + 'onaylanan dosya silinemez. Değişiklik gerekiyorsa Not yazın; kalite '
                       + 'maddeyi redde çekerse silme yeniden açılır.">🔒</span>')
                 : '')
-            + '</div>').join('')
+            // Revizyon sebebi ILGILI DOSYANIN karsisinda: en yeni dosya
+            // revizyonla yuklenen dosyadir.
+            + (sonRev && fi === sonIdx
+                ? ' <span style="background:var(--uyari-bg);color:var(--uyari);border-radius:6px;'
+                  + 'padding:1px 7px;font-size:11.5px;font-weight:600">🔁 ' + kacir(sonRev) + '</span>'
+                : '')
+            + '</div>').join('');
+          })()
         + (SABLON[m.no] ? '<div class="dosya">📄 <a href="#" onclick="sablonIndir('
             + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false"><b>Boş formatı indir</b> — '
             + kacir(SABLON[m.no].ad) + '</a></div>' : '')
@@ -611,5 +629,5 @@ function maddeSatirlari(maddeler, ic, projeId) {
   return h;
 }
 </script>
-<script src="ppap2.js?v=15"></script>
+<script src="ppap2.js?v=16"></script>
 </body></html>

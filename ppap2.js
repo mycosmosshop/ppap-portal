@@ -316,9 +316,17 @@ async function maddeKarar(maddeId, karar) {
     if (c === null) return;
     yorum = c.trim();
   }
-  const r = await sb.from('ppap_madde').update({ durum: karar, yorum: yorum }).eq('id', maddeId);
+  const y = { durum: karar, yorum: yorum };
+  // KABUL: revizyon dongusu kapandi — dosya satirindaki 'REVİZYON: ...'
+  // rozeti kalksin diye o parcalar nottan temizlenir.
+  if (karar === 'kabul' && m && met(m.ted_yorum).indexOf('REVİZYON:') >= 0) {
+    y.ted_yorum = met(m.ted_yorum).split(' · ')
+      .filter(x => x && x.indexOf('REVİZYON:') !== 0).join(' · ') || null;
+  }
+  const r = await sb.from('ppap_madde').update(y).eq('id', maddeId);
   if (r.error) { mesaj('Kaydedilemedi: ' + r.error.message, 'hata'); return; }
-  if (m) { m.durum = karar; m.yorum = yorum; }
+  if (m) { m.durum = karar; m.yorum = yorum;
+           if ('ted_yorum' in y) m.ted_yorum = y.ted_yorum; }
   if (ACIK) projeAc(ACIK);
 }
 
