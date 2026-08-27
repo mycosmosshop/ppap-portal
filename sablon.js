@@ -16,12 +16,12 @@ const SABLON = {
   "anahtar": "PPAPSABLON_2.1_PL74_Proses_Ak_Diyagram_(BOS_FORMAT).xlsx.json"
  },
  "2.2": {
-  "ad": "Process FMEA — AIAG-VDA formatı (VBA korunmuş)",
+  "ad": "Process FMEA — AIAG-VDA formatı",
   "dosya": "PFMEA_AIAGVDA_EN (BOS FORMAT).xlsm",
   "anahtar": "PPAPSABLON_2.2_PFMEA_AIAGVDA_EN_(BOS_FORMAT).xlsm.json"
  },
  "2.3": {
-  "ad": "Kontrol Planı — AIAG CP 2024 düzeni (Error-Proofing dahil)",
+  "ad": "Kontrol Planı — AIAG CP 2024 düzeni",
   "dosya": "CP Kontrol Plani AIAG 2024 (BOS FORMAT).xlsx",
   "anahtar": "PPAPSABLON_2.3_CP_Kontrol_Plani_AIAG_2024_(BOS_FORMAT).xlsx.json"
  },
@@ -31,7 +31,7 @@ const SABLON = {
   "anahtar": "PPAPSABLON_3.1.3_l_Kontrol_Raporu_Mercedes_(BOS_FORMAT).xls.json"
  },
  "4.5": {
-  "ad": "Run@Rate kapasite calismasi (formullu, VBA korunmus)",
+  "ad": "Run@Rate kapasite çalışması",
   "dosya": "Run-at-Rate (BOS FORMAT).xlsm",
   "anahtar": "PPAPSABLON_4.5_Run-at-Rate_(BOS_FORMAT).xlsm.json"
  },

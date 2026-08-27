@@ -4,8 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="katalog.js?v=23"></script>
-<script src="sablon.js?v=23"></script>
+<script src="katalog.js?v=24"></script>
+<script src="sablon.js?v=24"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -564,8 +564,6 @@ function maddeSatirlari(maddeler, ic, projeId) {
         + 'onclick="maddeBilgi(' + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false">'
         + kacir(m.ad) + '</a>'
         + (function () {
-          })()
-        + (function () {
             const revler = met(m.ted_yorum).split(' · ')
               .filter(x => x.indexOf('REVİZYON:') === 0);
             var sonRev = revler.length ? revler[revler.length - 1] : '';
@@ -593,6 +591,7 @@ function maddeSatirlari(maddeler, ic, projeId) {
                   + 'padding:1px 7px;font-size:11.5px;font-weight:600">🔁 ' + kacir(sonRev) + '</span>'
                 : '')
             + '</div>').join('');
+          })()
         + (function () {
             // Notlar madde basliginin altinda serbest duruyordu; hangi belgeye
             // ait oldugu belli olmuyordu. Artik dosya listesinin hemen altinda,
@@ -606,7 +605,6 @@ function maddeSatirlari(maddeler, ic, projeId) {
               + (kn ? '<div style="color:var(--sil)"><b>💬 Kalite notu:</b> ' + kacir(kn) + '</div>' : '')
               + (tn ? '<div class="soluk"><b>🗨 Tedarikçi notu:</b> ' + kacir(tn) + '</div>' : '')
               + '</div>';
-          })()
           })()
         + (SABLON[m.no] ? '<div class="dosya">📄 <a href="#" onclick="sablonIndir('
             + JSON.stringify(m.no).replace(/"/g, '&quot;') + ');return false"><b>Boş formatı indir</b> — '
@@ -643,5 +641,5 @@ function maddeSatirlari(maddeler, ic, projeId) {
   return h;
 }
 </script>
-<script src="ppap2.js?v=23"></script>
+<script src="ppap2.js?v=24"></script>
 </body></html>
