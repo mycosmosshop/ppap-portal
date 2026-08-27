@@ -4,8 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tedarikçi PPAP Portalı — Sanifoam</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="katalog.js?v=20"></script>
-<script src="sablon.js?v=20"></script>
+<script src="katalog.js?v=21"></script>
+<script src="sablon.js?v=21"></script>
 <style>
 :root{
   --antet:#123a6b; --antet2:#1b5fa8; --zemin:#f1f5f9; --kart:#fff;
@@ -243,6 +243,23 @@ async function davetiKullan(hazirOturum) {
         + 'Davet bağlantısı geçerliliğini koruyor.</div>';
       return;
     }
+    // ERP kullanicisi daveti kullanirsa KALITE yetkisini kaybeder ve bu
+    // portalda tedarikci olur — bunu bilerek yapsin.
+    if (deneme === 0) {
+      try {
+        const kk = await sb.rpc('ppap_kim');
+        if (kk.data && kk.data.erp_onayli) {
+          if (!confirm('DİKKAT: Bu hesap ERP (Kalite) kullanıcısı.\n\n'
+              + 'Daveti kullanırsanız bu portalda TEDARİKÇİ olarak işaretlenecek, '
+              + 'yalnız o firmayı görecek ve kalite yetkilerini KAYBEDECEKSİNİZ.\n'
+              + '(Geri almak: kalite panelinden "Kaldır".)\n\nDevam edilsin mi?')) {
+            history.replaceState({}, '', location.pathname);
+            await kimlikBelirle(oturum);
+            return;
+          }
+        }
+      } catch (e) {}
+    }
     const r = await sb.rpc('ppap_davet_kullan', { p_kod: DAVET });
     if (!r.error) {
       history.replaceState({}, '', location.pathname);
@@ -276,6 +293,19 @@ async function kimlikBelirle(oturum) {
   const kim = (rk0 && rk0.data) || {};
   if (rk0 && rk0.error) neden.push('ppap_kim: ' + rk0.error.message);
   ic = !!kim.erp_onayli;
+  // ACIK DUZELTMESI: tedarikciye baglanmis hesap, ERP kullanicisi olsa
+  // bile bu portalda TEDARIKCIDIR — yalniz kendi firmasini gorur ve
+  // onay bekler. (Once ERP onayi her seyi aciyordu; davet linki
+  // gonderilen ERP kullanicisi tum tedarikcileri gorebiliyordu.)
+  if (ic) {
+    const rb = await sb.from('ppap_kullanici').select('tedarikci,aktif')
+      .ilike('eposta', eposta).maybeSingle();
+    if (rb.data) {
+      ic = false;
+      if (rb.data.aktif) tedarikci = rb.data.tedarikci;
+      else neden.push('tedarikçi kaydınız onay bekliyor');
+    }
+  }
   if (!ic) {
     if (!kim.uid) neden.push('oturum sunucuya ulaşmadı (uid yok)');
     else if (!kim.erp_kayit) neden.push('erp_users kaydı yok (uid ' + met(kim.uid).slice(0, 8) + '…)');
@@ -635,5 +665,5 @@ function maddeSatirlari(maddeler, ic, projeId) {
   return h;
 }
 </script>
-<script src="ppap2.js?v=20"></script>
+<script src="ppap2.js?v=21"></script>
 </body></html>
