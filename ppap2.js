@@ -28,6 +28,9 @@ function soruModal(baslik, etiket, varsayilan) {
 
 // ── İÇ YÜZ (kalite) ───────────────────────────────────────────────────────
 let PROJELER = [], MADDELER = [], ACIK = null;
+// Son temizligin kopyasi: { projeId, ad, kayit:[{id,dosyalar,yorum,ted_yorum,durum}],
+// projeDurum } — 'Geri al' bunu geri yazar.
+let GERI_AL = null;
 let GORUNUM = localStorage.getItem('ppap_gorunum') || 'tedarikci';   // tedarikci | proje
 let OZET = {};        // proje_id -> {toplam, bekliyor, yuklendi, kabul, red, dosya, sonHareket}
 
@@ -285,6 +288,11 @@ async function projeAc(id) {
     + '<button class="dugme duz" onclick="ppapIndir(' + A + ')">⤓ İndir</button>'
     + '<button class="dugme duz" style="color:var(--sil)" onclick="projeTemizle(' + A + ')">🧹 Temizle</button>'
     + '<button class="dugme duz" style="color:var(--sil)" onclick="projeSil(' + A + ')">🗑 Sil</button>'
+    + (GERI_AL && GERI_AL.projeId === id
+        ? '<button class="dugme" style="background:var(--uyari);border-color:var(--uyari)" '
+          + 'title="Son temizliği geri al — ' + kacir(GERI_AL.ad)
+          + ' (sayfayı yenilerseniz kaybolur)" onclick="temizligiGeriAl()">↩ Geri al</button>'
+        : '')
     + '</div></div>'
     + '<div class="soluk">' + kacir(p.parca_ad) + (met(p.musteri) ? ' · Müşteri: ' + kacir(p.musteri) : '')
     + ' · Seviye ' + kacir(p.seviye) + '</div>'
@@ -343,10 +351,13 @@ async function maddeTemizle(maddeId) {
       + 'Bu maddenin dosyalari, notlari ve karari TEMIZLENSIN mi?'
       + String.fromCharCode(10) + 'Geri alinamaz.')) return;
   const y = { dosyalar: [], yorum: null, ted_yorum: null, durum: 'bekliyor' };
+  const kopya = [{ id: m.id, dosyalar: m.dosyalar || [], yorum: m.yorum || null,
+                   ted_yorum: m.ted_yorum || null, durum: m.durum }];
   const r = await sb.from('ppap_madde').update(y).eq('id', maddeId);
   if (r.error) { mesaj('Temizlenemedi: ' + r.error.message, 'hata'); return; }
+  GERI_AL = { projeId: ACIK, ad: m.no + ' ' + m.ad, kayit: kopya, projeDurum: null };
   Object.assign(m, y);
-  mesaj('🧹 ' + m.no + ' temizlendi.');
+  mesaj('🧹 ' + m.no + ' temizlendi — başlıktaki <b>↩ Geri al</b> ile dönebilirsiniz.');
   projeAc(ACIK);
 }
 
@@ -359,12 +370,21 @@ async function projeTemizle(id) {
       + String.fromCharCode(10) + 'Devam edilsin mi?')) return;
   if (!confirm('Son onay: bu islem GERI ALINAMAZ. Temizlensin mi?')) return;
   const y = { dosyalar: [], yorum: null, ted_yorum: null, durum: 'bekliyor' };
+  // Yalniz icerigi olan maddeleri sakla — geri yazma hizli olsun.
+  const kopya = MADDELER
+    .filter(m => (m.dosyalar || []).length || met(m.yorum) || met(m.ted_yorum)
+                 || m.durum !== 'bekliyor')
+    .map(m => ({ id: m.id, dosyalar: m.dosyalar || [], yorum: m.yorum || null,
+                 ted_yorum: m.ted_yorum || null, durum: m.durum }));
+  const eskiDurum = p.durum;
   const r = await sb.from('ppap_madde').update(y).eq('proje_id', id);
   if (r.error) { mesaj('Temizlenemedi: ' + r.error.message, 'hata'); return; }
   await sb.from('ppap_proje').update({ durum: 'hazirlik' }).eq('id', id);
   p.durum = 'hazirlik';
+  GERI_AL = { projeId: id, ad: 'proje (' + kopya.length + ' madde)',
+              kayit: kopya, projeDurum: eskiDurum };
   MADDELER.forEach(m => Object.assign(m, y));
-  mesaj('🧹 Proje temizlendi — tum maddeler Bekliyor durumuna dondu.');
+  mesaj('🧹 Proje temizlendi — başlıktaki <b>↩ Geri al</b> ile dönebilirsiniz.');
   projeAc(id);
 }
 
@@ -538,6 +558,30 @@ async function projeSil(id) {
   ACIK = null;
   mesaj('🗑 Proje silindi (' + rm.data.length + ' madde).');
   projeListesi();
+}
+
+// Temizligi geri alir: dosya kunyeleri, notlar ve kararlar geri yazilir.
+async function temizligiGeriAl() {
+  if (!GERI_AL || GERI_AL.projeId !== ACIK) { mesaj('Geri alınacak temizlik yok.', 'hata'); return; }
+  const g = GERI_AL;
+  mesaj('↩ Geri alınıyor… (' + g.kayit.length + ' madde)');
+  for (const k of g.kayit) {
+    const r = await sb.from('ppap_madde').update({
+      dosyalar: k.dosyalar, yorum: k.yorum, ted_yorum: k.ted_yorum, durum: k.durum
+    }).eq('id', k.id);
+    if (r.error) { mesaj('Geri alınamadı: ' + r.error.message, 'hata'); return; }
+    const m = MADDELER.find(x => x.id === k.id);
+    if (m) Object.assign(m, { dosyalar: k.dosyalar, yorum: k.yorum,
+                              ted_yorum: k.ted_yorum, durum: k.durum });
+  }
+  if (g.projeDurum) {
+    await sb.from('ppap_proje').update({ durum: g.projeDurum }).eq('id', g.projeId);
+    const p = PROJELER.find(x => x.id === g.projeId);
+    if (p) p.durum = g.projeDurum;
+  }
+  GERI_AL = null;
+  mesaj('↩ Geri alındı — ' + g.kayit.length + ' maddenin dosya ve notları yerinde.');
+  projeAc(ACIK);
 }
 
 async function maddeKarar(maddeId, karar) {
