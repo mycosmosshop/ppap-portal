@@ -285,6 +285,8 @@ async function projeAc(id) {
     + Object.keys(DURUM_AD).map(k => '<option value="' + k + '"' + (k === p.durum ? ' selected' : '')
         + '>' + DURUM_AD[k] + '</option>').join('') + '</select>'
     + '<button class="dugme duz" onclick="seviyeUygula(' + A + ')">⚙ Seviye uygula</button>'
+    + '<button class="dugme duz" onclick="projeLinkPenceresi(' + A + ')" '
+    + 'title="Tedarikçiye bu projenin bağlantısını gönder">✉ Tedarikçiye gönder</button>'
     + '<button class="dugme duz" onclick="ppapIndir(' + A + ')">⤓ İndir</button>'
     + '<button class="dugme duz" style="color:var(--sil)" onclick="projeTemizle(' + A + ')">🧹 Temizle</button>'
     + '<button class="dugme duz" style="color:var(--sil)" onclick="projeSil(' + A + ')">🗑 Sil</button>'
@@ -754,6 +756,95 @@ async function kullaniciPenceresi() {
     kapat(); mesaj('✅ ' + mail + ' → ' + t); kullaniciPenceresi();
   };
 }
+// Proje ekranindan tedarikci baglantisi. Davet tek kullanimlik oldugu
+// icin proje acildiktan sonra ortada gosterilecek bir link kalmiyordu;
+// burada tedarikcinin DURUMUNA gore dogrusu veriliyor.
+async function projeLinkPenceresi(id) {
+  const p = PROJELER.find(x => x.id === id);
+  if (!p) { mesaj('Proje bulunamadı.', 'hata'); return; }
+  const portal = location.href.split('?')[0].split('#')[0];
+
+  const rk = await sb.from('ppap_kullanici').select('eposta,aktif').eq('tedarikci', p.tedarikci);
+  if (rk.error) { mesaj('Kullanıcılar okunamadı: ' + rk.error.message, 'hata'); return; }
+  const kullanicilar = rk.data || [];
+  const aktif = kullanicilar.filter(k => k.aktif);
+  const bekleyen = kullanicilar.filter(k => !k.aktif);
+
+  let link = portal, tur = 'giris', mail = (aktif[0] || bekleyen[0] || {}).eposta || '';
+  if (!aktif.length && !bekleyen.length) {
+    // Hesap yok: kullanilmamis davet varsa onu kullan, yoksa yeni uret.
+    const rd = await sb.from('ppap_davet').select('kod')
+      .eq('tedarikci', p.tedarikci).is('kullanan', null)
+      .order('olusturma', { ascending: false }).limit(1);
+    let kod = (rd.data && rd.data[0] && rd.data[0].kod) || '';
+    if (!kod) {
+      kod = [...crypto.getRandomValues(new Uint8Array(9))]
+        .map(x => 'abcdefghijkmnpqrstuvwxyz23456789'[x % 32]).join('');
+      const ri = await sb.from('ppap_davet').insert({
+        kod: kod, tedarikci: p.tedarikci, ad: '', olusturan: BEN.eposta });
+      if (ri.error) { mesaj('Davet oluşturulamadı: ' + ri.error.message, 'hata'); return; }
+    }
+    link = portal + '?davet=' + kod;
+    tur = 'davet';
+  } else if (!aktif.length) {
+    tur = 'onaybekliyor';
+  }
+
+  const bekleyenMadde = (MADDELER || []).filter(m => m.gonderim && m.durum !== 'kabul').length;
+  const durumYazi = {
+    giris: 'Bu tedarikçinin <b>aktif hesabı var</b> — portala kendi şifresiyle girer, '
+      + 'davet bağlantısına gerek yok.',
+    onaybekliyor: 'Tedarikçi kaydını oluşturmuş ama <b>onayınızı bekliyor</b>. '
+      + '👤 Tedarikçi kullanıcıları penceresinden onaylayana kadar giremez.',
+    davet: 'Bu tedarikçinin henüz hesabı yok — <b>davet bağlantısı</b> verildi. '
+      + 'Tek kullanımlık, 30 gün geçerli.'
+  }[tur];
+
+  const pen = document.createElement('div');
+  pen.className = 'perde';
+  pen.innerHTML = '<div class="pencere"><h2>✉ Tedarikçiye gönder</h2>'
+    + '<div class="soluk">' + kacir(p.tedarikci) + ' — ' + kacir(p.parca_no)
+    + ' · Seviye ' + kacir(p.seviye) + '</div>'
+    + '<div class="bilgi-kutu">' + durumYazi + '</div>'
+    + '<div class="bilgi-kutu" style="word-break:break-all;font-family:monospace;font-size:12px">'
+    + kacir(link) + '</div>'
+    + '<label class="soluk">Alıcı e-posta</label>'
+    + '<input id="pl_mail" value="' + kacir(mail) + '" placeholder="tedarikci@firma.com">'
+    + '<div class="dugmeler"><button class="dugme" id="pl_kopya">📋 Kopyala</button>'
+    + '<button class="dugme duz" id="pl_mailbtn">📧 Mail taslağı</button>'
+    + '<button class="dugme duz sag" id="pl_kapat">Kapat</button></div></div>';
+  document.body.appendChild(pen);
+  const kapat = () => pen.remove();
+  pen.addEventListener('click', e => { if (e.target === pen) kapat(); });
+  pen.querySelector('#pl_kapat').onclick = kapat;
+  pen.querySelector('#pl_kopya').onclick = async () => {
+    try { await navigator.clipboard.writeText(link); mesaj('📋 Kopyalandı.'); }
+    catch (e) { mesaj('Kopyalanamadı — bağlantıyı elle seçip kopyalayın.', 'hata'); }
+  };
+  pen.querySelector('#pl_mailbtn').onclick = () => {
+    const konu = 'PPAP dosyası — ' + p.tedarikci + ' / ' + p.parca_no;
+    const govde = ['Sayın Yetkili,', '',
+      p.parca_no + (met(p.parca_ad) ? ' (' + p.parca_ad + ')' : '')
+        + ' için PPAP dosyası portalda açılmıştır.',
+      met(p.musteri) ? 'Müşteri: ' + p.musteri : '',
+      'PPAP seviyesi: ' + p.seviye,
+      bekleyenMadde ? 'Sizden beklenen madde sayısı: ' + bekleyenMadde : '',
+      '', 'Portal bağlantısı:', link, '',
+      tur === 'davet'
+        ? 'Bağlantıyı açın, e-postanızı yazıp kendi şifrenizi belirleyin. '
+          + 'Bağlantı tek kullanımlıktır ve 30 gün geçerlidir.'
+        : 'Kendi hesabınızla giriş yapıp bu parçaya ait maddeleri görebilirsiniz.',
+      '', 'Her maddede boş formatı indirip doldurabilir, dosyayı sürükleyip '
+        + 'yükleyebilirsiniz.', '',
+      'Saygılarımızla,', 'Sanifoam Kalite'].filter(x => x !== '').join('\n');
+    const a = document.createElement('a');
+    a.href = 'mailto:' + encodeURIComponent(pen.querySelector('#pl_mail').value.trim())
+      + '?subject=' + encodeURIComponent(konu) + '&body=' + encodeURIComponent(govde);
+    a.style.display = 'none'; document.body.appendChild(a); a.click();
+    setTimeout(() => a.remove(), 1000);
+  };
+}
+
 // Davet linki penceresi: kopyala + mail taslagi (uygulama mail GONDERMEZ).
 function davetPenceresi(tedarikci, link, mail) {
   const p = document.createElement('div');
