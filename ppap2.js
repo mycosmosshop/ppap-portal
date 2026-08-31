@@ -637,6 +637,15 @@ async function seviyeUygula(id) {
   projeAc(id);
 }
 
+// Davet/kullanici degisince ANA EKRAN sayaclari da tazelensin. Eskiden
+// yalniz pencere yeniden aciliyordu; ozetleriYukle cagrilmadigi icin
+// "N davet gonderildi" seridi silinmis davetleri saymaya devam ediyordu.
+async function kullaniciTazele(pencereyiAc) {
+  await ozetleriYukle();
+  (GORUNUM === 'tedarikci') ? tedarikciGorunumu() : icEkran();
+  if (pencereyiAc) kullaniciPenceresi();
+}
+
 // ── Tedarikçi kullanıcıları ──────────────────────────────────────────────
 async function kullaniciPenceresi() {
   const r = await sb.from('ppap_kullanici').select('*').order('tedarikci');
@@ -650,11 +659,8 @@ async function kullaniciPenceresi() {
   const p = document.createElement('div');
   p.className = 'perde';
   p.innerHTML = '<div class="pencere"><h2>👤 Tedarikçi kullanıcıları</h2>'
-    + '<div class="bilgi-kutu"><b>Kolay yol:</b> tedarikçiyi seçin, <b>🔗 Davet linki '
-    + 'oluştur</b>a basın ve çıkan bağlantıyı gönderin. Tedarikçi kendi e-postasını ve '
-    + '<b>kendi şifresini</b> belirleyip girer; siz hesap açmazsınız, şifre taşımazsınız. '
-    + 'Bağlantı tek kullanımlıktır ve 30 gün geçerlidir.</div>'
-    + '<label>E-posta</label><input id="k_mail" type="email" placeholder="kalite@tedarikci.com">'
+    // ASIL yol one cikar: tedarikci sec -> davet linki. Diger iki yol
+    // katlanabilir bolumde; pencere uc esdeger dugmeyle kalabalikti.
     + '<label>Tedarikçi</label>'
     + (ted.length
         ? '<select id="k_ted"><option value="">— tedarikçi seçin —</option>'
@@ -662,13 +668,22 @@ async function kullaniciPenceresi() {
             + ((davetler[0] && x.ad === davetler[0].tedarikci) ? ' selected' : '')
             + '>' + kacir(x.ad) + '</option>').join('') + '</select>'
         : '<input id="k_ted" value="' + kacir((davetler[0] || {}).tedarikci || '') + '">')
+    + '<label>E-posta <span class="soluk">(isteğe bağlı — mail taslağını doldurur)</span></label>'
+    + '<input id="k_mail" type="email" placeholder="kalite@tedarikci.com">'
+    + '<div class="dugmeler"><button class="dugme" id="k_davet">🔗 Davet linki oluştur</button></div>'
+    + '<div class="soluk" style="margin-top:6px">Tedarikçi bağlantıyı açar, kendi '
+    + 'e-postasını ve şifresini belirler. Siz hesap açmazsınız. Tek kullanımlık, 30 gün.</div>'
+    + '<details style="margin-top:12px"><summary class="soluk" style="cursor:pointer">'
+    + 'Diğer yollar — tedarikçi giriş yapamıyorsa</summary>'
+    + '<div style="padding:8px 0 2px">'
     + '<label>Kişi adı (isteğe bağlı)</label><input id="k_ad">'
-    + '<div class="dugmeler"><button class="dugme" id="k_davet">🔗 Davet linki oluştur</button>'
+    + '<div class="dugmeler" style="margin-top:8px">'
     + '<button class="dugme duz" id="k_kuyruk">⏳ Onay kuyruğuna ekle</button>'
     + '<button class="dugme duz" id="k_ekle">✔ Bağla ve onayla</button></div>'
-    + '<div class="soluk" style="margin-top:6px">Tedarikçi giriş yapmakta zorlanıyorsa '
-    + '<b>Onay kuyruğuna ekle</b> deyin: kayıt onayınızı bekler duruma düşer, siz '
-    + 'onaylarsınız, o da hazır olduğunda girer.</div>'
+    + '<div class="soluk" style="margin-top:6px"><b>Onay kuyruğuna ekle:</b> kayıt '
+    + 'onayınızı bekler duruma düşer, siz onaylarsınız, tedarikçi hazır olduğunda girer. '
+    + '<b>Bağla ve onayla:</b> e-postayı doğrudan onaylı bağlar.</div>'
+    + '</div></details>'
     + (liste.length
         ? '<table style="margin-top:14px"><thead><tr><th>E-posta</th><th>Tedarikçi</th>'
           + '<th>Durum</th><th></th></tr></thead><tbody>'
@@ -691,7 +706,9 @@ async function kullaniciPenceresi() {
           + '</tbody></table>'
         : '<div class="soluk" style="margin-top:12px">Henüz bağlı kullanıcı yok.</div>')
     + (davetler.length
-        ? '<h3 style="margin:18px 0 4px">🔗 Gönderilen davetler</h3>'
+        ? '<h3 style="margin:18px 0 4px">🔗 Gönderilen davetler ('
+          + davetler.filter(x => !x.kullanan).length + ' bekliyor / '
+          + davetler.length + ' toplam)</h3>'
           + '<div class="soluk">Davet kullanılmadan onay kuyruğuna bir şey düşmez.</div>'
           + '<table style="margin-top:6px"><thead><tr><th>Tedarikçi</th><th>Durum</th>'
           + '<th>Tarih</th><th></th></tr></thead><tbody>'
@@ -895,7 +912,7 @@ async function kullaniciOnay(eposta, aktif) {
               : '⛔ ' + eposta + ' erişimi durduruldu.');
   document.querySelectorAll('.perde').forEach(x => x.remove());
   await ozetleriYukle();
-  kullaniciPenceresi();
+  await kullaniciTazele(true);
 }
 
 // Davet satirindan tek tikla onay kuyruguna ekleme: firma zaten belli,
@@ -919,7 +936,7 @@ async function davetSil(kod) {
   if (r.error) { mesaj('Silinemedi: ' + r.error.message, 'hata'); return; }
   document.querySelectorAll('.perde').forEach(x => x.remove());
   mesaj('Davet iptal edildi.');
-  kullaniciPenceresi();
+  await kullaniciTazele(true);
 }
 
 async function kullaniciSil(eposta) {
@@ -927,7 +944,7 @@ async function kullaniciSil(eposta) {
   const r = await sb.from('ppap_kullanici').delete().eq('eposta', eposta);
   if (r.error) { mesaj('Kaldırılamadı: ' + r.error.message, 'hata'); return; }
   document.querySelectorAll('.perde').forEach(x => x.remove());
-  kullaniciPenceresi();
+  await kullaniciTazele(true);
 }
 
 // ── TEDARİKÇİ YÜZÜ ───────────────────────────────────────────────────────
